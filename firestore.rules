@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isMember(hid) {
+      return signedIn() && request.auth.uid in get(/databases/$(database)/documents/households/$(hid)).data.members;
+    }
+
+    // Each person's pointer to their household. Only they can see or change it.
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /households/{hid} {
+      // Start a household: you must be its only member.
+      allow create: if signedIn() && request.resource.data.members == [request.auth.uid];
+      // Only members can see it.
+      allow read: if signedIn() && request.auth.uid in resource.data.members;
+      // Members can change it. Someone with the invite code can only add themselves (max 4 people).
+      allow update: if signedIn() && (
+        request.auth.uid in resource.data.members ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'personOf']) &&
+          request.resource.data.members.toSet() == resource.data.members.toSet().union([request.auth.uid].toSet()) &&
+          request.resource.data.personOf.diff(resource.data.personOf).affectedKeys().hasOnly([request.auth.uid]) &&
+          resource.data.members.size() < 4
+        )
+      );
+      allow delete: if false;
+
+      // Entries and goals: members only.
+      match /{sub}/{docId} {
+        allow read, write: if isMember(hid);
+      }
+    }
+  }
+}

@@ -1,0 +1,1233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B5F57">
+<meta name="description" content="Household money tracker: income, spending, savings goals and receipt scanning.">
+<title>Pocket Ledger</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: month header → "left to spend" summary with split bar → two columns (ledger + categories | add form + goals); one column on phones */
+:root {
+  --bg: #F3F6F5;
+  --surface: #FFFFFF;
+  --sunk: #E8EEEC;
+  --ink: #13211F;
+  --ink-2: #4A5C59;
+  --ink-3: #7A8B88;
+  --line: #D8E1DF;
+  --accent: #0B5F57;
+  --accent-ink: #FFFFFF;
+  --c-spent: #D4583F;
+  --c-saved: #3D57C9;
+  --c-left: #00917F;
+  --c-bar: #0B7E73;
+  --neg: #B5412B;
+  --pos: #0A7A5F;
+  --warn-bg: #FFF4DC;
+  --warn-ink: #7A5200;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1716; --surface: #172220; --sunk: #1F2C2A; --ink: #E6EEEC; --ink-2: #A9B9B6; --ink-3: #7D8F8C;
+    --line: #2A3936; --accent: #3FC2B0; --accent-ink: #06201D;
+    --c-spent: #E06A52; --c-saved: #6C83EC; --c-left: #1FA894; --c-bar: #2FB5A3;
+    --neg: #F08A73; --pos: #4FD1AE; --warn-bg: #3A2E12; --warn-ink: #F4D08A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1716; --surface: #172220; --sunk: #1F2C2A; --ink: #E6EEEC; --ink-2: #A9B9B6; --ink-3: #7D8F8C;
+  --line: #2A3936; --accent: #3FC2B0; --accent-ink: #06201D;
+  --c-spent: #E06A52; --c-saved: #6C83EC; --c-left: #1FA894; --c-bar: #2FB5A3;
+  --neg: #F08A73; --pos: #4FD1AE; --warn-bg: #3A2E12; --warn-ink: #F4D08A;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { color-scheme: light; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: calc(16px + env(safe-area-inset-top, 0px)) calc(48px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 20px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; font-weight: 700; }
+h2 { font-size: 1.1rem; }
+.num { font-variant-numeric: tabular-nums; }
+.label { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand h1 { font-size: 1.35rem; letter-spacing: -.01em; }
+.brand span { color: var(--ink-3); font-size: .85rem; }
+.monthnav { display: flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
+.monthnav button { border: 0; background: transparent; width: 34px; height: 34px; border-radius: 999px; font-size: 1.1rem; color: var(--ink-2); }
+.monthnav button:hover { background: var(--sunk); }
+.monthnav strong { font-family: var(--f-display); min-width: 9.5em; text-align: center; font-weight: 500; }
+.toolbar { display: flex; gap: 6px; flex-wrap: wrap; }
+.tool { position: relative; width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; color: var(--ink-2); padding: 0; }
+.tool:hover { border-color: var(--ink-3); color: var(--accent); }
+.tool::after { content: attr(title); position: absolute; top: calc(100% + 6px); right: 0; background: var(--ink); color: var(--bg); font-size: .75rem; white-space: nowrap; padding: 4px 8px; border-radius: 6px; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 5; }
+.tool:hover::after, .tool:focus-visible::after { opacity: 1; }
+.ghost { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-size: .85rem; color: var(--ink-2); }
+.ghost:hover { border-color: var(--ink-3); color: var(--ink); }
+
+.banner { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; background: var(--warn-bg); color: var(--warn-ink); border-radius: var(--r); padding: 10px 14px; font-size: .9rem; }
+.banner button { border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 999px; padding: 4px 12px; font-size: .85rem; }
+
+/* Summary */
+.summary { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: grid; gap: 18px; }
+.hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.hero .big { font-family: var(--f-display); font-size: clamp(2.2rem, 7vw, 3.4rem); line-height: 1; letter-spacing: -.02em; font-weight: 700; }
+.hero .big.neg { color: var(--neg); }
+.hero .sub { color: var(--ink-2); font-size: .92rem; margin-top: 6px; }
+.split { display: flex; gap: 2px; height: 14px; border-radius: 4px; overflow: hidden; background: var(--sunk); }
+.split div { height: 100%; transition: width .4s ease; }
+.split div:first-child { border-radius: 4px 0 0 4px; }
+.split div:last-child { border-radius: 0 4px 4px 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .85rem; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line); padding-top: 16px; }
+.stats > div { padding-inline: 14px; border-left: 1px solid var(--line); min-width: 0; }
+.stats > div:first-child { padding-left: 0; border-left: 0; }
+.stats .v { font-family: var(--f-display); font-size: 1.25rem; font-weight: 500; overflow-wrap: anywhere; }
+.stats .h { font-size: .8rem; color: var(--ink-3); }
+@media (max-width: 640px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; }
+  .stats > div:nth-child(3) { padding-left: 0; border-left: 0; }
+}
+
+/* Columns */
+.cols { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } .side { order: -1; } }
+.main, .side { display: grid; gap: 20px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.muted { color: var(--ink-3); font-size: .88rem; }
+
+/* Form */
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--sunk); border-radius: 10px; padding: 3px; gap: 3px; }
+.seg button { border: 0; background: transparent; border-radius: 8px; padding: 7px 4px; font-size: .85rem; font-weight: 600; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field label { font-size: .8rem; color: var(--ink-2); font-weight: 500; }
+.field input, .field select { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 9px 11px; min-width: 0; }
+.field input:focus, .field select:focus { border-color: var(--accent); outline: none; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.amount-in { font-family: var(--f-display); font-size: 1.3rem !important; }
+.primary { border: 0; background: var(--accent); color: var(--accent-ink); border-radius: 10px; padding: 11px 16px; font-weight: 600; }
+.primary:hover { filter: brightness(1.08); }
+.primary:disabled, .ghost:disabled { opacity: .5; cursor: not-allowed; }
+.formfoot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.formfoot .primary { flex: 1; }
+.hint { font-size: .82rem; color: var(--ink-3); }
+.err { font-size: .85rem; color: var(--neg); }
+
+/* Ledger */
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 4px 11px; font-size: .8rem; color: var(--ink-2); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.ledger { list-style: none; margin: 0; padding: 0; display: grid; }
+.day { font-size: .75rem; color: var(--ink-3); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 12px 0 4px; border-bottom: 1px solid var(--line); }
+.tx { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.tx .dot { width: 8px; height: 8px; border-radius: 2px; }
+.tx .what { min-width: 0; }
+.tx .what b { font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx .what small { color: var(--ink-3); font-size: .82rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx .amt { font-weight: 600; text-align: right; }
+.amt.in { color: var(--pos); }
+.amt.out { color: var(--ink); }
+.amt.sv { color: var(--c-saved); }
+.tx .acts { display: flex; gap: 2px; }
+.icon-btn { border: 0; background: transparent; color: var(--ink-3); border-radius: 6px; padding: 4px 7px; font-size: .78rem; }
+.icon-btn:hover { background: var(--sunk); color: var(--ink); }
+.icon-btn.danger { color: var(--neg); }
+.sample-tag { font-size: .65rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; background: var(--warn-bg); color: var(--warn-ink); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: 1px; }
+.empty { text-align: center; padding: 26px 10px; color: var(--ink-3); display: grid; gap: 10px; justify-items: center; }
+
+/* Categories */
+.cats { display: grid; gap: 10px; }
+.cat { display: grid; grid-template-columns: minmax(0, 8.5em) minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: .88rem; }
+.cat .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.cat .track { height: 10px; background: var(--sunk); border-radius: 4px; overflow: hidden; }
+.cat .fill { height: 100%; background: var(--c-bar); border-radius: 0 4px 4px 0; }
+.cat .v { text-align: right; font-weight: 600; }
+.cat .v small { color: var(--ink-3); font-weight: 400; margin-left: 4px; }
+
+/* Goals */
+.goals { display: grid; gap: 12px; }
+.goal { border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 8px; }
+.goal-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.goal-top h3 { font-size: 1rem; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.goal-top .pct { font-family: var(--f-display); font-weight: 700; color: var(--c-saved); }
+.meter { height: 8px; background: var(--sunk); border-radius: 4px; overflow: hidden; }
+.meter div { height: 100%; background: var(--c-saved); border-radius: 0 4px 4px 0; transition: width .4s ease; }
+.goal.done .meter div, .goal.done .pct { background-color: var(--c-left); }
+.goal.done .pct { background: none; color: var(--c-left); }
+.goal-meta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: .82rem; color: var(--ink-2); }
+.goal-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.goal-acts .ghost { padding: 4px 11px; font-size: .8rem; }
+.pool { display: flex; justify-content: space-between; gap: 8px; font-size: .85rem; color: var(--ink-2); background: var(--sunk); border-radius: 8px; padding: 9px 12px; }
+details.box summary { cursor: pointer; font-weight: 600; font-size: .9rem; color: var(--ink-2); list-style: none; }
+details.box summary::-webkit-details-marker { display: none; }
+details.box summary::before { content: "+ "; color: var(--accent); }
+details.box[open] summary::before { content: "– "; }
+details.box > div { display: grid; gap: 10px; margin-top: 12px; }
+
+.who { display: flex; gap: 3px; background: var(--sunk); border-radius: 999px; padding: 3px; flex-wrap: wrap; }
+.who button { border: 0; background: transparent; border-radius: 999px; padding: 6px 14px; font-size: .88rem; font-weight: 600; color: var(--ink-2); }
+.who button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.who button.house[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.owner-tag { font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; margin-left: 8px; vertical-align: 2px; white-space: nowrap; }
+.split-by { font-size: .8rem; color: var(--ink-3); }
+.scanbig { display: flex; gap: 12px; align-items: center; text-align: left; width: 100%; border: 1.5px dashed var(--accent); background: transparent; color: var(--ink); border-radius: 12px; padding: 12px 14px; }
+.scanbig svg { color: var(--accent); flex: none; }
+.scanbig small { display: block; color: var(--ink-3); font-size: .8rem; }
+.scanbig:hover { background: var(--sunk); }
+.scan { border-color: var(--accent); }
+.scan-status { color: var(--ink-2); font-size: .92rem; }
+.spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -1px; margin-right: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.scan-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.scard { border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.scard.off { opacity: .55; }
+.scard-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: .88rem; }
+.scard-top label { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.flag { font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; border-radius: 4px; padding: 2px 6px; background: var(--warn-bg); color: var(--warn-ink); }
+.q { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 9px 10px; font-size: .88rem; display: grid; gap: 8px; }
+.q.done { background: var(--sunk); color: var(--ink-2); }
+.q .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.q .opts button { border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 999px; padding: 5px 12px; font-size: .82rem; }
+.q .opts button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.field.need input, .field.need select { border-color: var(--neg); }
+.dup { font-size: .8rem; color: var(--warn-ink); background: var(--warn-bg); border-radius: 6px; padding: 5px 8px; }
+.setsec { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
+.setsec h3 { font-size: .95rem; }
+.ok { font-size: .85rem; color: var(--pos); }
+.linkish { border: 0; background: transparent; color: var(--accent); font-weight: 600; padding: 6px 0; justify-self: start; }
+.gate { position: fixed; inset: 0; z-index: 20; background: var(--bg); overflow: auto; display: grid; justify-items: center; align-items: start; padding-inline: 16px; padding-block: calc(24px + env(safe-area-inset-top, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)); }
+.gate-card { width: min(100%, 440px); display: grid; gap: 18px; margin-top: 5vh; }
+.gate-brand { display: flex; gap: 14px; align-items: center; }
+.gate-brand img { border-radius: 12px; }
+.gate-brand h1 { font-size: 1.6rem; }
+.gate-brand span { color: var(--ink-3); font-size: .9rem; }
+.gate-form, .gate-sec { display: grid; gap: 12px; }
+.gate-sec { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+#gSignin, #gSetup { display: grid; gap: 14px; }
+#gSignin[hidden], #gSetup[hidden] { display: none; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-width: calc(100% - 32px); text-align: center; z-index: 30; background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 999px; font-size: .88rem; z-index: 9; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><h1>Pocket Ledger</h1><span id="modeNote"></span></div>
+    <div class="who" id="who" role="group" aria-label="Whose money"></div>
+    <div class="monthnav" role="group" aria-label="Month">
+      <button id="prevM" aria-label="Previous month">‹</button>
+      <strong id="monthLabel" class="num">—</strong>
+      <button id="nextM" aria-label="Next month">›</button>
+    </div>
+    <div class="toolbar">
+      <button class="tool" id="installBtn" title="Install app" aria-label="Install app" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/><path d="M10.5 18.5h3"/></svg></button>
+      <button class="tool" id="scanBtn" title="Scan a receipt or screenshot" aria-label="Scan a receipt or screenshot"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h1.5l1.5-2h6l1.5 2H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg></button>
+      <button class="tool" id="settingsBtn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+      <button class="tool" id="exportBtn" title="Export to spreadsheet (CSV)" aria-label="Export to spreadsheet (CSV)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6"/><path d="m9 15 3 3 3-3"/></svg></button>
+      <button class="tool" id="backupBtn" title="Back up" aria-label="Back up"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a5 5 0 0 1-.9-9.9A6 6 0 0 1 17.7 9 4.5 4.5 0 0 1 17 18"/><path d="M12 12v8"/><path d="m8.5 15.5 3.5-3.5 3.5 3.5"/></svg></button>
+      <button class="tool" id="restoreBtn" title="Restore from backup" aria-label="Restore from backup"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/></svg></button>
+      <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+      <input type="file" id="scanFile" accept="image/*" multiple hidden>
+    </div>
+  </header>
+
+  <div class="banner" id="sampleBanner" hidden>
+    <span>These are example entries so you can see how it works. Clear them when you're ready to add your own.</span>
+    <button id="clearSamples">Clear examples</button>
+  </div>
+  <div class="banner" id="restoreBanner" hidden><span id="restoreMsg"></span><span style="display:flex;gap:8px"><button id="restoreYes">Replace my data</button><button id="restoreNo">Cancel</button></span></div>
+  <div class="banner" id="readonlyBanner" hidden><span>This tracker is private to its owner. You can't see or change its entries.</span></div>
+
+  <section class="panel" id="settingsPanel" hidden>
+    <div class="panel-head"><h2>Settings</h2><button class="icon-btn" id="closeSettings">Close</button></div>
+    <div class="row2">
+      <div class="field"><label for="setCurrency">Currency</label>
+        <select id="setCurrency">
+          <option value="MVR">MVR – Maldivian rufiyaa</option><option value="USD">USD – US dollar</option>
+          <option value="PKR">PKR – Pakistani rupee</option><option value="INR">INR – Indian rupee</option>
+          <option value="LKR">LKR – Sri Lankan rupee</option><option value="AED">AED – UAE dirham</option>
+          <option value="EUR">EUR – Euro</option><option value="GBP">GBP – British pound</option>
+        </select></div>
+      <div></div>
+      <div class="field"><label for="setName1">First person's name</label><input id="setName1" maxlength="20"></div>
+      <div class="field"><label for="setOpen1" id="setOpen1L">Savings they already had</label><input id="setOpen1" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+      <div class="field"><label for="setName2">Second person's name</label><input id="setName2" maxlength="20"></div>
+      <div class="field"><label for="setOpen2" id="setOpen2L">Savings they already had</label><input id="setOpen2" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+    </div>
+    <p class="hint" style="margin:0">"Savings they already had" is each person's starting balance before you began logging here. It counts toward total savings but not toward any goal.</p>
+    <div class="setsec">
+      <h3>Scanning on this device</h3>
+      <div class="field"><label for="setKey">Gemini API key</label><input id="setKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key from Google AI Studio"></div>
+      <p class="hint" style="margin:0">Kept on this device only, never in the shared data. Get a free key at aistudio.google.com, then Get API key.</p>
+      <details class="box"><summary>Advanced</summary><div><div class="field"><label for="setModel">Gemini model</label><input id="setModel" spellcheck="false" placeholder="gemini-3.8-flash"></div></div></details>
+    </div>
+    <div><button class="primary" id="saveSettings">Save settings</button></div>
+    <div class="setsec">
+      <h3>Household</h3>
+      <p class="hint" id="hhInfo" style="margin:0"></p>
+      <div class="field"><label for="inviteLink">Invite link for your partner</label><input id="inviteLink" readonly></div>
+      <div class="formfoot"><button class="ghost" id="copyInvite" type="button">Copy link</button><button class="ghost" id="shareInvite" type="button" hidden>Share</button></div>
+    </div>
+    <div class="setsec">
+      <h3>Account</h3>
+      <p class="hint" id="acctInfo" style="margin:0"></p>
+      <div><button class="ghost" id="signOutBtn" type="button">Sign out</button></div>
+    </div>
+  </section>
+
+  <section class="summary" aria-label="This month">
+    <div class="hero">
+      <div>
+        <div class="label" id="heroLabel">Left to spend this month</div>
+        <div class="big num" id="leftBig">—</div>
+        <div class="sub" id="leftSub">Add your income for this month to get started.</div>
+      </div>
+      <button class="ghost" id="copyIncome" hidden>Copy income from last month</button>
+    </div>
+    <div>
+      <div class="split" id="split" role="img" aria-label="How this month's income is split"></div>
+      <div class="legend" id="legend" style="margin-top:10px"></div>
+    </div>
+    <div class="stats">
+      <div><div class="label">Income</div><div class="v num" id="sIncome">—</div><div class="h" id="sIncomeH">&nbsp;</div></div>
+      <div><div class="label">Spent</div><div class="v num" id="sSpent">—</div><div class="h" id="sSpentH">&nbsp;</div></div>
+      <div><div class="label">Saved this month</div><div class="v num" id="sSaved">—</div><div class="h" id="sSavedH">&nbsp;</div></div>
+      <div><div class="label">Total savings</div><div class="v num" id="sTotal">—</div><div class="h" id="sTotalH">&nbsp;</div></div>
+    </div>
+  </section>
+
+  <section class="panel scan" id="scanPanel" hidden aria-live="polite">
+    <div class="panel-head"><h2 id="scanTitle">Reading your image…</h2><button class="icon-btn" id="scanClose">Close</button></div>
+    <div class="scan-status" id="scanStatus"></div>
+    <div class="scan-list" id="scanList"></div>
+    <div class="err" id="scanErr" hidden></div>
+    <div class="formfoot" id="scanFoot" hidden><button class="primary" id="scanAdd">Add entries</button><button class="ghost" id="scanMore">Scan another</button></div>
+  </section>
+
+  <div class="cols">
+    <div class="main">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Entries</h2>
+          <div class="filters" role="group" aria-label="Filter entries">
+            <button class="chip" data-f="all" aria-pressed="true">All</button>
+            <button class="chip" data-f="expense" aria-pressed="false">Spent</button>
+            <button class="chip" data-f="income" aria-pressed="false">Income</button>
+            <button class="chip" data-f="savings" aria-pressed="false">Savings</button>
+          </div>
+        </div>
+        <ul class="ledger" id="ledger"></ul>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Where the money went</h2><span class="muted" id="catNote"></span></div>
+        <div class="cats" id="cats"></div>
+      </section>
+    </div>
+
+    <aside class="side">
+      <section class="panel" id="formPanel">
+        <button class="scanbig" id="scanBtn2"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h1.5l1.5-2h6l1.5 2H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg><span><b>Scan a receipt or screenshot</b><small>Take a photo or pick one. I'll fill in the details and ask if anything's unclear.</small></span></button>
+        <div class="panel-head"><h2 id="formTitle">Add an entry</h2><button class="icon-btn" id="cancelEdit" hidden>Cancel edit</button></div>
+        <div class="seg" role="group" aria-label="Entry type">
+          <button data-t="expense" aria-pressed="true">Spent</button>
+          <button data-t="income" aria-pressed="false">Income</button>
+          <button data-t="save" aria-pressed="false">Save</button>
+          <button data-t="withdraw" aria-pressed="false">Withdraw</button>
+        </div>
+        <form id="entryForm" style="display:grid;gap:12px" novalidate>
+          <div class="field" id="whoField" hidden><label for="fWho">Whose entry is this?</label><select id="fWho"></select></div>
+          <div class="field"><label for="fAmount" id="fAmountLabel">Amount</label>
+            <input id="fAmount" class="amount-in num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" required></div>
+          <div class="row2">
+            <div class="field" id="catField"><label for="fCat">Category</label>
+              <input id="fCat" list="catList" autocomplete="off" placeholder="Pick or type"><datalist id="catList"></datalist></div>
+            <div class="field" id="goalField" hidden><label for="fGoal">Goal</label>
+              <select id="fGoal"></select></div>
+            <div class="field"><label for="fDate">Date</label><input id="fDate" type="date" required></div>
+          </div>
+          <div class="field"><label for="fNote">Note <span class="muted">(optional)</span></label>
+            <input id="fNote" maxlength="80" placeholder="e.g. Groceries at Agora"></div>
+          <div class="err" id="formErr" hidden></div>
+          <div class="formfoot"><button class="primary" type="submit" id="submitBtn">Add expense</button></div>
+          <div class="hint" id="typeHint">Money you spent this month.</div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Savings goals</h2></div>
+        <div class="goals" id="goals"></div>
+        <div class="pool" id="pool" hidden><span>Savings not set aside for a goal</span><b class="num" id="poolV"></b></div>
+        <details class="box" id="goalBox">
+          <summary id="goalSummary">New goal</summary>
+          <div>
+            <div class="field"><label for="gName">What are you saving for?</label><input id="gName" maxlength="40" placeholder="e.g. New phone, Trip to Sri Lanka"></div>
+            <div class="row2">
+              <div class="field"><label for="gTarget">Target amount</label><input id="gTarget" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+              <div class="field"><label for="gDate">Target date <span class="muted">(optional)</span></label><input id="gDate" type="month"></div>
+            </div>
+            <div class="field"><label for="gOwner">Whose goal?</label><select id="gOwner"></select></div>
+            <div class="err" id="goalErr" hidden></div>
+            <div class="formfoot"><button class="primary" id="saveGoal">Create goal</button><button class="icon-btn" id="cancelGoal" hidden>Cancel</button></div>
+          </div>
+        </details>
+      </section>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <div class="gate-brand"><img src="icons/icon-192.png" alt="" width="48" height="48"><div><h1>Pocket Ledger</h1><span>Household money, together</span></div></div>
+
+    <div id="gLoading"><p class="muted" id="gLoadingMsg"><span class="spin" aria-hidden="true"></span>Opening…</p></div>
+
+    <div id="gSignin" hidden>
+      <form id="gSigninForm" class="gate-form" novalidate>
+        <div class="field"><label for="gEmail">Email</label><input id="gEmail" type="email" autocomplete="email" inputmode="email" required></div>
+        <div class="field"><label for="gPass">Password</label><input id="gPass" type="password" autocomplete="current-password" required></div>
+        <div class="err" id="gErr" hidden></div>
+        <div class="ok" id="gOk" hidden></div>
+        <button class="primary" type="submit" id="gSigninBtn">Sign in</button>
+        <button class="ghost" type="button" id="gCreateBtn">Create account</button>
+        <button class="linkish" type="button" id="gForgot">Forgot password?</button>
+      </form>
+      <p class="hint">New here? Type your email and a password (6+ characters), then tap Create account.</p>
+    </div>
+
+    <div id="gSetup" hidden>
+      <p class="muted">Signed in as <b id="gWho"></b></p>
+      <section class="gate-sec">
+        <h2>Join your partner</h2>
+        <p class="hint">If your partner already set up Pocket Ledger, paste the invite link or code from their Settings.</p>
+        <div class="field"><label for="gJoinCode">Invite link or code</label><input id="gJoinCode" autocomplete="off" spellcheck="false"></div>
+        <button class="primary" type="button" id="gJoinHH">Join household</button>
+      </section>
+      <section class="gate-sec">
+        <h2>Or start a new household</h2>
+        <div class="row2">
+          <div class="field"><label for="gName1">Your name</label><input id="gName1" maxlength="20" placeholder="Me"></div>
+          <div class="field"><label for="gName2">Partner's name</label><input id="gName2" maxlength="20" placeholder="My wife"></div>
+        </div>
+        <button class="ghost" type="button" id="gCreateHH">Start a new household</button>
+      </section>
+      <div class="err" id="gSetupErr" hidden></div>
+      <button class="linkish" type="button" id="gSignout">Use a different account</button>
+    </div>
+
+    <div id="gConfig" hidden>
+      <p class="muted">This copy of Pocket Ledger isn't connected to a database yet. Add your Firebase settings to config.js and upload it again.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const EXP_CATS = ["Food & groceries","Eating out","Rent & bills","Transport","Phone & internet","Shopping","Health","Family & gifts","Entertainment","Other"];
+  const INC_CATS = ["Salary","Side income","Overtime","Gift","Other"];
+  const LS_KEY = "pocket-ledger-v1";
+
+  const state = { entries: [], goals: [], settings: { currency: "MVR", opening: 0 }, ready: false };
+  const ui = { month: monthKey(new Date()), filter: "all", type: "expense", editId: null, goalEditId: null, confirm: null, view: "p1" };
+  try { const v = localStorage.getItem("pl-view"); if (v) ui.view = v; } catch {}
+  const DEFAULT_PEOPLE = [{ id: "p1", name: "Me" }, { id: "p2", name: "My wife" }];
+  function normalize() {
+    const st = state.settings;
+    if (!Array.isArray(st.people) || !st.people.length) st.people = DEFAULT_PEOPLE.map(x => Object.assign({}, x));
+    if (!st.openingBy) st.openingBy = { p1: +st.opening || 0 };
+    state.entries.forEach(e => { if (!e.person) e.person = "p1"; });
+    state.goals.forEach(g => { if (!g.owner) g.owner = "p1"; });
+    if (ui.view !== "all" && !st.people.some(x => x.id === ui.view)) ui.view = "p1";
+  }
+  const people = () => state.settings.people || DEFAULT_PEOPLE;
+  const pname = id => id === "shared" ? "Shared" : ((people().find(x => x.id === id) || {}).name || "Someone");
+  const isHouse = () => ui.view === "all";
+  const poss = id => { const n = pname(id); return /^me$/i.test(n) ? "your" : n + "'s"; };
+  const viewEntries = () => isHouse() ? state.entries : state.entries.filter(e => e.person === ui.view);
+  const visibleGoals = who => { who = who || ui.view; return who === "all" ? state.goals : state.goals.filter(g => g.owner === who || g.owner === "shared"); };
+  const entryWho = () => isHouse() ? ($("fWho").value || "p1") : ui.view;
+  let backend = null; // {kind, add, update, remove, saveGoal, removeGoal, saveSettings}
+  let readOnly = false;
+
+  // ---------- helpers ----------
+  function monthKey(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+  function todayISO() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+  function shiftMonth(k, n) { const [y, m] = k.split("-").map(Number); return monthKey(new Date(y, m - 1 + n, 1)); }
+  function monthName(k, short) { const [y, m] = k.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: short ? "short" : "long", year: "numeric" }); }
+  function monthsBetween(a, b) { const [y1,m1]=a.split("-").map(Number), [y2,m2]=b.split("-").map(Number); return (y2-y1)*12 + (m2-m1); }
+  let fmtCache = {};
+  function money(n, opts) {
+    const c = state.settings.currency || "MVR";
+    const key = c + (opts && opts.whole ? "w" : "");
+    if (!fmtCache[key]) {
+      try { fmtCache[key] = new Intl.NumberFormat(undefined, { style: "currency", currency: c, currencyDisplay: "code", minimumFractionDigits: opts && opts.whole ? 0 : 2, maximumFractionDigits: opts && opts.whole ? 0 : 2 }); }
+      catch { fmtCache[key] = { format: v => c + " " + v.toFixed(2) }; }
+    }
+    return fmtCache[key].format(n).replace(/ /g, " ");
+  }
+  const num = v => { const n = parseFloat(v); return isFinite(n) ? Math.round(n * 100) / 100 : NaN; };
+  const sum = (arr, f) => arr.reduce((s, x) => s + (f ? f(x) : x), 0);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2200); }
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  // ---------- backends ----------
+  // ---------- Firebase (shared household data) ----------
+  let household = null, fbctx = null;
+  const validId = id => /^[A-Za-z0-9_-]{1,100}$/.test(String(id || ""));
+  function firebaseBackend(fb) {
+    const { F, db, hid } = fb;
+    const hh = F.doc(db, "households", hid), E = F.collection(hh, "entries"), G = F.collection(hh, "goals");
+    const clean = o => { const c = JSON.parse(JSON.stringify(o)); delete c.id; return c; };
+    // Writes show up straight away and sync in the background (also offline),
+    // so don't wait for the server here; report failures when they happen.
+    const fire = p => { p.catch(e => toast(e && e.code === "permission-denied" ? "You don't have access to this household any more." : "A change couldn't be saved. Check your connection.")); return Promise.resolve(); };
+    const got = { e: false, g: false, h: false };
+    const settle = k => { got[k] = true; if (got.e && got.g && got.h) state.ready = true; normalize(); render(); };
+    const snapErr = e => { if (e && e.code === "permission-denied") { readOnly = true; render(); toast("You don't have access to this household."); } };
+    F.onSnapshot(E, s => { state.entries = s.docs.map(d => Object.assign({ id: d.id }, d.data())); settle("e"); }, snapErr);
+    F.onSnapshot(G, s => { state.goals = s.docs.map(d => Object.assign({ id: d.id }, d.data())); settle("g"); }, snapErr);
+    F.onSnapshot(hh, s => {
+      if (s.exists()) {
+        household = s.data();
+        state.settings = Object.assign({ currency: "MVR", opening: 0 }, JSON.parse(JSON.stringify(household.settings || {})));
+        fmtCache = {};
+        if (!viewChosen) { const mine = (household.personOf || {})[fb.user.uid]; if (mine) ui.view = mine; viewChosen = true; }
+      }
+      settle("h");
+    }, snapErr);
+    return {
+      kind: "firebase",
+      add: e => fire(F.setDoc(F.doc(E), clean(e))),
+      update: (id, e) => fire(F.setDoc(F.doc(E, id), clean(e))),
+      remove: id => fire(F.deleteDoc(F.doc(E, id))),
+      saveGoal: (id, g) => fire(F.setDoc(id ? F.doc(G, id) : F.doc(G), clean(g))),
+      removeGoal: id => fire(F.deleteDoc(F.doc(G, id))),
+      saveSettings: st => fire(F.updateDoc(hh, { settings: clean(Object.assign({}, state.settings, st)) })),
+      replaceAll: async d => {
+        const inE = (d.entries || []).map(e => Object.assign({ person: "p1" }, e));
+        const inG = (d.goals || []).map(g => Object.assign({ owner: "p1" }, g));
+        const keepE = new Set(inE.filter(e => validId(e.id)).map(e => e.id)), keepG = new Set(inG.filter(g => validId(g.id)).map(g => g.id));
+        const ops = [];
+        state.entries.forEach(e => { if (!keepE.has(e.id)) ops.push(b => b.delete(F.doc(E, e.id))); });
+        state.goals.forEach(g => { if (!keepG.has(g.id)) ops.push(b => b.delete(F.doc(G, g.id))); });
+        inG.forEach(g => ops.push(b => b.set(validId(g.id) ? F.doc(G, g.id) : F.doc(G), clean(g))));
+        inE.forEach(e => ops.push(b => b.set(validId(e.id) ? F.doc(E, e.id) : F.doc(E), clean(e))));
+        for (let i = 0; i < ops.length; i += 400) { const b = F.writeBatch(db); ops.slice(i, i + 400).forEach(f => f(b)); await b.commit(); }
+        const st = Object.assign({ currency: "MVR", opening: 0 }, d.settings || {});
+        if (!Array.isArray(st.people) || !st.people.length) st.people = (state.settings.people || DEFAULT_PEOPLE);
+        await F.updateDoc(hh, { settings: clean(st) });
+      }
+    };
+  }
+  function onDbErr(e) { if (e && e.code === "revoked") { readOnly = true; render(); } }
+  async function run(p, okMsg) {
+    try { await p; if (okMsg) toast(okMsg); return true; }
+    catch (e) {
+      if (e && e.code === "invalid_argument") { readOnly = true; render(); toast("You don't have permission to change this tracker."); }
+      else if (e && e.code === "quota_exceeded") toast("Storage is full. Delete some old entries and try again.");
+      else toast("Couldn't save. Check your connection and try again.");
+      return false;
+    }
+  }
+
+  // ---------- derived numbers ----------
+  function inMonth(k) { return viewEntries().filter(e => (e.date || "").slice(0, 7) === k); }
+  function monthTotals(k) {
+    const es = inMonth(k);
+    const t = { income: 0, spent: 0, save: 0, withdraw: 0 };
+    es.forEach(e => { const a = +e.amount || 0; if (e.type === "income") t.income += a; else if (e.type === "expense") t.spent += a; else if (e.type === "save") t.save += a; else if (e.type === "withdraw") t.withdraw += a; });
+    t.netSaved = t.save - t.withdraw;
+    t.left = t.income - t.spent - t.netSaved;
+    return t;
+  }
+  const flow = e => e.type === "save" ? +e.amount : e.type === "withdraw" ? -e.amount : 0;
+  function totalSavings(uptoMonth, who) {
+    who = who || ui.view;
+    let es = who === "all" ? state.entries : state.entries.filter(e => e.person === who);
+    if (uptoMonth) es = es.filter(e => (e.date || "").slice(0, 7) <= uptoMonth);
+    const ob = state.settings.openingBy || {};
+    const opening = who === "all" ? sum(Object.values(ob), v => +v || 0) : (+ob[who] || 0);
+    return opening + sum(es, flow);
+  }
+  function goalBalance(id, who) { return sum(state.entries.filter(e => e.goalId === id && (!who || who === "all" || e.person === who)), flow); }
+
+  // ---------- render ----------
+  function render() {
+    $("monthLabel").textContent = monthName(ui.month);
+    $("who").innerHTML = people().map(x => `<button data-view="${x.id}" aria-pressed="${ui.view === x.id}">${esc(x.name)}</button>`).join("") +
+      `<button class="house" data-view="all" aria-pressed="${isHouse()}">Household</button>`;
+    $("heroLabel").textContent = (isHouse() ? "Household" : pname(ui.view)) + " · left to spend this month";
+    $("modeNote").textContent = !backend ? "" : navigator.onLine ? "Synced" : "Offline · changes will sync";
+    $("readonlyBanner").hidden = !readOnly;
+    $("sampleBanner").hidden = readOnly || !(state.entries.some(e => e.sample) || state.goals.some(g => g.sample));
+    document.querySelectorAll("#formPanel button, #formPanel input, #formPanel select, #goalBox input, #saveGoal, #saveSettings").forEach(el => el.disabled = readOnly);
+
+    const t = monthTotals(ui.month);
+    const prev = monthTotals(shiftMonth(ui.month, -1));
+    const hasIncome = t.income > 0;
+    const big = $("leftBig");
+    big.textContent = money(t.left);
+    big.classList.toggle("neg", t.left < 0);
+    if (!hasIncome && t.spent === 0 && t.netSaved === 0) $("leftSub").textContent = "Add " + (isHouse() ? "income" : poss(ui.view) + " income") + " for " + monthName(ui.month, true) + " to see what's left.";
+    else if (!hasIncome) $("leftSub").textContent = "No income logged for this month yet.";
+    else if (t.left < 0) $("leftSub").textContent = "You've gone " + money(-t.left) + " over this month's income.";
+    else {
+      const pct = Math.round(t.left / t.income * 100);
+      let extra = "";
+      if (ui.month === monthKey(new Date())) {
+        const d = new Date(); const daysLeft = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() - d.getDate() + 1;
+        extra = " · about " + money(t.left / daysLeft, { whole: true }) + " a day for the " + daysLeft + " day" + (daysLeft === 1 ? "" : "s") + " left";
+      }
+      $("leftSub").textContent = pct + "% of " + (isHouse() ? "household" : poss(ui.view)) + " income is still free" + extra + ".";
+    }
+    $("copyIncome").hidden = readOnly || hasIncome || !inMonth(shiftMonth(ui.month, -1)).some(e => e.type === "income");
+
+    // split bar
+    const base = Math.max(t.income, t.spent + Math.max(t.netSaved, 0)) || 0;
+    const parts = [
+      { k: "Spent", v: t.spent, c: "var(--c-spent)" },
+      { k: "Saved", v: Math.max(t.netSaved, 0), c: "var(--c-saved)" },
+      { k: "Left", v: Math.max(t.left, 0), c: "var(--c-left)" }
+    ];
+    $("split").innerHTML = base ? parts.filter(p => p.v > 0).map(p => `<div title="${p.k}: ${esc(money(p.v))}" style="width:${p.v / base * 100}%;background:${p.c}"></div>`).join("") : "";
+    $("legend").innerHTML = parts.map(p => `<span><i style="background:${p.c}"></i>${p.k} <b class="num">${esc(money(p.v))}</b>${t.income ? ` <span class="muted">${Math.round(p.v / t.income * 100)}%</span>` : ""}</span>`).join("");
+
+    $("sIncome").textContent = money(t.income);
+    $("sIncomeH").textContent = delta(t.income, prev.income, "vs last month");
+    $("sSpent").textContent = money(t.spent);
+    $("sSpentH").textContent = delta(t.spent, prev.spent, "vs last month");
+    $("sSaved").textContent = money(t.netSaved);
+    $("sSavedH").textContent = t.withdraw ? money(t.withdraw) + " withdrawn" : (t.income ? Math.round(t.netSaved / t.income * 100) + "% of income" : " ");
+    const isPast = ui.month < monthKey(new Date());
+    $("sTotal").textContent = money(totalSavings(isPast ? ui.month : null));
+    $("sTotalH").textContent = isPast ? "at end of " + monthName(ui.month, true) : (isHouse() ? "both of you, all goals" : "across all goals");
+
+    renderLedger(); renderCats(); renderGoals(); renderFormBits();
+  }
+  function delta(a, b, label) {
+    if (!b) return " ";
+    const d = a - b; if (Math.abs(d) < 0.005) return "same as last month";
+    return (d > 0 ? "+" : "−") + money(Math.abs(d), { whole: true }) + " " + label;
+  }
+
+  function renderLedger() {
+    const list = $("ledger");
+    if (!state.ready) { list.innerHTML = `<li class="empty">Loading your entries…</li>`; return; }
+    let es = inMonth(ui.month);
+    if (ui.filter === "expense") es = es.filter(e => e.type === "expense");
+    if (ui.filter === "income") es = es.filter(e => e.type === "income");
+    if (ui.filter === "savings") es = es.filter(e => e.type === "save" || e.type === "withdraw");
+    es.sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.created || 0) - (a.created || 0));
+    if (!es.length) {
+      list.innerHTML = `<li class="empty"><span>${ui.filter === "all" ? "Nothing logged " + (isHouse() ? "" : "for " + esc(pname(ui.view)) + " ") + "in " + esc(monthName(ui.month)) + " yet." : "No entries of this kind this month."}</span><span class="hint">Use the form to add your income first, then each thing you spend.</span></li>`;
+      return;
+    }
+    const goalName = id => (state.goals.find(g => g.id === id) || {}).name;
+    let html = "", lastDay = "";
+    es.forEach(e => {
+      if (e.date !== lastDay) {
+        lastDay = e.date;
+        const d = new Date(e.date + "T00:00:00");
+        html += `<li class="day">${esc(d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }))}</li>`;
+      }
+      const meta = { expense: ["var(--c-spent)", "out", "−"], income: ["var(--c-left)", "in", "+"], save: ["var(--c-saved)", "sv", "→ "], withdraw: ["var(--c-saved)", "in", "← "] }[e.type] || ["var(--ink-3)", "out", ""];
+      let title = e.category || "";
+      if (e.type === "save") title = "Saved" + (goalName(e.goalId) ? " for " + goalName(e.goalId) : "");
+      if (e.type === "withdraw") title = "Took out of savings" + (goalName(e.goalId) ? " (" + goalName(e.goalId) + ")" : "");
+      const confirming = ui.confirm === e.id;
+      html += `<li class="tx"><span class="dot" style="background:${meta[0]}"></span>
+        <div class="what"><b>${esc(title || "Untitled")}${e.sample ? '<span class="sample-tag">Example</span>' : ""}</b><small>${esc([e.note || (e.type === "expense" ? "Spent" : e.type === "income" ? "Income" : ""), isHouse() ? pname(e.person) : ""].filter(Boolean).join(" · "))}</small></div>
+        <span class="amt num ${meta[1]}">${meta[2]}${esc(money(+e.amount))}</span>
+        <span class="acts">${readOnly ? "" : confirming
+          ? `<button class="icon-btn danger" data-del="${e.id}">Delete</button><button class="icon-btn" data-nodel="1">Keep</button>`
+          : `<button class="icon-btn" data-edit="${e.id}" aria-label="Edit entry">Edit</button><button class="icon-btn" data-ask="${e.id}" aria-label="Delete entry">✕</button>`}</span></li>`;
+    });
+    list.innerHTML = html;
+  }
+
+  function renderCats() {
+    const es = inMonth(ui.month).filter(e => e.type === "expense");
+    const total = sum(es, e => +e.amount);
+    const by = {};
+    es.forEach(e => { const c = e.category || "Other"; by[c] = (by[c] || 0) + +e.amount; });
+    const rows = Object.entries(by).sort((a, b) => b[1] - a[1]);
+    $("catNote").textContent = total ? money(total) + " total" : "";
+    if (!rows.length) { $("cats").innerHTML = `<div class="empty" style="padding:12px">Your spending by category will show here.</div>`; return; }
+    const max = rows[0][1];
+    $("cats").innerHTML = rows.map(([c, v]) => `<div class="cat" title="${esc(c)}: ${esc(money(v))} (${Math.round(v / total * 100)}%)"><span class="n">${esc(c)}</span><div class="track"><div class="fill" style="width:${Math.max(v / max * 100, 1.5)}%"></div></div><span class="v num">${esc(money(v, { whole: true }))}<small>${Math.round(v / total * 100)}%</small></span></div>`).join("");
+  }
+
+  function renderGoals() {
+    const box = $("goals");
+    const nowK = monthKey(new Date());
+    const vg = visibleGoals();
+    if (!vg.length) {
+      box.innerHTML = `<div class="empty" style="padding:10px"><span>No goals yet.</span><span class="hint">Create one for a phone, a trip, or anything else, then use "Save" in the form to put money toward it.</span></div>`;
+    } else {
+      const gs = vg.slice().sort((a, b) => (a.created || 0) - (b.created || 0));
+      box.innerHTML = gs.map(g => {
+        const bal = goalBalance(g.id), tgt = +g.target || 0;
+        const pct = tgt ? Math.min(100, Math.round(bal / tgt * 100)) : 0;
+        const done = tgt && bal >= tgt;
+        let plan = "";
+        if (done) plan = "Goal reached";
+        else if (g.by) {
+          const m = monthsBetween(nowK, g.by);
+          plan = m <= 0 ? "Target date passed" : money((tgt - bal) / m, { whole: true }) + "/month to make " + monthName(g.by, true);
+        } else plan = money(Math.max(tgt - bal, 0), { whole: true }) + " to go";
+        const confirming = ui.confirm === "g:" + g.id;
+        return `<div class="goal${done ? " done" : ""}">
+          <div class="goal-top"><h3>${esc(g.name)}<span class="owner-tag">${esc(pname(g.owner))}</span></h3><span class="pct num">${pct}%</span></div>
+          <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${esc(g.name)} progress"><div style="width:${pct}%"></div></div>
+          <div class="goal-meta num"><span>${esc(money(bal, { whole: true }))} of ${esc(money(tgt, { whole: true }))}</span><span>${esc(plan)}</span></div>
+          ${g.owner === "shared" && bal ? `<div class="split-by num">${people().map(x => esc(x.name) + " " + esc(money(goalBalance(g.id, x.id), { whole: true }))).join(" · ")}</div>` : ""}
+          ${readOnly ? "" : `<div class="goal-acts">${confirming
+            ? `<span class="hint">Delete this goal? Its saved entries stay in your total savings.</span><button class="ghost" data-gdel="${g.id}">Delete goal</button><button class="ghost" data-nodel="1">Keep</button>`
+            : `<button class="ghost" data-gadd="${g.id}">Add money</button><button class="ghost" data-gedit="${g.id}">Edit</button><button class="icon-btn" data-gask="${g.id}" aria-label="Delete goal">✕</button>`}</div>`}
+        </div>`;
+      }).join("");
+    }
+    const inGoals = sum(vg, g => goalBalance(g.id, ui.view));
+    const pool = totalSavings() - inGoals;
+    $("pool").hidden = !(state.goals.length && Math.abs(pool) >= 0.005);
+    $("poolV").textContent = money(pool);
+  }
+
+  function renderFormBits() {
+    const t = ui.type;
+    document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.t === t)));
+    const goalMode = t === "save" || t === "withdraw";
+    $("catField").hidden = goalMode;
+    $("goalField").hidden = !goalMode;
+    const cats = t === "income" ? INC_CATS : EXP_CATS;
+    const used = state.entries.filter(e => e.type === t && e.category).map(e => e.category);
+    $("catList").innerHTML = [...new Set(cats.concat(used))].map(c => `<option value="${esc(c)}">`).join("");
+    $("whoField").hidden = !isHouse();
+    const ws = $("fWho"), wcur = ws.value;
+    ws.innerHTML = people().map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("");
+    if ([...ws.options].some(o => o.value === wcur)) ws.value = wcur;
+    const go = $("gOwner"), gcur = go.value;
+    go.innerHTML = people().map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("") + `<option value="shared">Shared (both of us)</option>`;
+    if (!$("goalBox").open || !gcur || ![...go.options].some(o => o.value === gcur)) go.value = isHouse() ? "shared" : ui.view; else go.value = gcur;
+    if (ui.goalEditId) { const eg = state.goals.find(x => x.id === ui.goalEditId); if (eg) go.value = eg.owner; }
+    const sel = $("fGoal"), cur = sel.value;
+    sel.innerHTML = `<option value="">General savings (no goal)</option>` + visibleGoals(entryWho()).map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join("");
+    if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+    const verb = { expense: "expense", income: "income", save: "savings", withdraw: "withdrawal" }[t];
+    $("submitBtn").textContent = (ui.editId ? "Update " : "Add ") + verb;
+    $("formTitle").textContent = ui.editId ? "Edit entry" : "Add an entry";
+    $("cancelEdit").hidden = !ui.editId;
+    $("typeHint").textContent = {
+      expense: "Money you spent. It comes out of what's left this month.",
+      income: "Salary or any money coming in this month.",
+      save: "Money you move into savings. It leaves this month's spending money and adds to your savings or a goal.",
+      withdraw: "Money you take back out of savings. It adds to what's left this month."
+    }[t];
+  }
+
+  // ---------- form actions ----------
+  function setType(t) { ui.type = t; renderFormBits(); }
+  function resetForm() {
+    ui.editId = null;
+    $("fAmount").value = ""; $("fCat").value = ""; $("fNote").value = "";
+    $("fDate").value = defaultDate(); $("formErr").hidden = true;
+    renderFormBits();
+  }
+  function defaultDate() { return ui.month === monthKey(new Date()) ? todayISO() : ui.month + "-01"; }
+
+  $("entryForm").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    if (readOnly || !backend) return;
+    const amount = num($("fAmount").value), date = $("fDate").value;
+    const err = m => { $("formErr").textContent = m; $("formErr").hidden = false; };
+    if (!(amount > 0)) return err("Enter an amount greater than zero.");
+    if (!date) return err("Pick a date.");
+    const goalMode = ui.type === "save" || ui.type === "withdraw";
+    const e = { type: ui.type, amount, date, note: $("fNote").value.trim(), created: Date.now(), person: entryWho() };
+    if (goalMode) { e.goalId = $("fGoal").value || ""; e.category = "Savings"; }
+    else e.category = $("fCat").value.trim() || (ui.type === "income" ? "Salary" : "Other");
+    if (ui.type === "withdraw") {
+      const avail = e.goalId ? goalBalance(e.goalId) : totalSavings(null, e.person);
+      const before = ui.editId ? (state.entries.find(x => x.id === ui.editId) || {}) : {};
+      const back = before.type === "withdraw" && before.goalId === e.goalId && (e.goalId || before.person === e.person) ? +before.amount : 0;
+      if (amount > avail + back + 0.004) return err("That's more than you have saved there (" + money(avail + back) + ").");
+    }
+    $("formErr").hidden = true;
+    const wasEdit = ui.editId;
+    if (wasEdit) { const old = state.entries.find(x => x.id === wasEdit); if (old && old.created) e.created = old.created; }
+    const ok = await run(wasEdit ? backend.update(wasEdit, e) : backend.add(e), wasEdit ? "Entry updated" : "Added");
+    if (ok) {
+      const keepDate = date;
+      resetForm(); $("fDate").value = keepDate;
+      if (date.slice(0, 7) !== ui.month) { ui.month = date.slice(0, 7); render(); }
+      $("fAmount").focus();
+    }
+  });
+  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => setType(b.dataset.t)));
+  $("cancelEdit").addEventListener("click", resetForm);
+
+  $("ledger").addEventListener("click", async ev => {
+    const b = ev.target.closest("button"); if (!b) return;
+    if (b.dataset.ask) { ui.confirm = b.dataset.ask; renderLedger(); }
+    else if (b.dataset.nodel) { ui.confirm = null; renderLedger(); }
+    else if (b.dataset.del) { ui.confirm = null; await run(backend.remove(b.dataset.del), "Deleted"); }
+    else if (b.dataset.edit) {
+      const e = state.entries.find(x => x.id === b.dataset.edit); if (!e) return;
+      ui.editId = e.id; ui.type = e.type; $("fWho").value = e.person;
+      $("fAmount").value = e.amount; $("fDate").value = e.date; $("fNote").value = e.note || "";
+      renderFormBits();
+      if (e.type === "save" || e.type === "withdraw") $("fGoal").value = e.goalId || ""; else $("fCat").value = e.category || "";
+      $("formPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      $("fAmount").focus();
+    }
+  });
+
+  document.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => {
+    ui.filter = c.dataset.f;
+    document.querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", String(x === c)));
+    renderLedger();
+  }));
+
+  $("prevM").addEventListener("click", () => { ui.month = shiftMonth(ui.month, -1); ui.confirm = null; if (!ui.editId) $("fDate").value = defaultDate(); render(); });
+  $("nextM").addEventListener("click", () => { ui.month = shiftMonth(ui.month, 1); ui.confirm = null; if (!ui.editId) $("fDate").value = defaultDate(); render(); });
+
+  $("copyIncome").addEventListener("click", async () => {
+    const prevK = shiftMonth(ui.month, -1);
+    const src = inMonth(prevK).filter(e => e.type === "income");
+    for (const e of src) {
+      const day = e.date.slice(8);
+      const [y, m] = ui.month.split("-").map(Number);
+      const last = new Date(y, m, 0).getDate();
+      const d = ui.month + "-" + String(Math.min(+day, last)).padStart(2, "0");
+      const copy = { type: "income", amount: +e.amount, category: e.category, note: e.note || "", date: d, created: Date.now(), person: e.person };
+      if (!(await run(backend.add(copy)))) return;
+    }
+    toast("Copied " + src.length + " income entr" + (src.length === 1 ? "y" : "ies"));
+  });
+
+  // ---------- goals ----------
+  function resetGoalForm() { ui.goalEditId = null; $("gName").value = ""; $("gTarget").value = ""; $("gDate").value = ""; $("goalErr").hidden = true; $("saveGoal").textContent = "Create goal"; $("goalSummary").textContent = "New goal"; $("cancelGoal").hidden = true; }
+  $("saveGoal").addEventListener("click", async () => {
+    const name = $("gName").value.trim(), target = num($("gTarget").value), by = $("gDate").value;
+    const err = m => { $("goalErr").textContent = m; $("goalErr").hidden = false; };
+    if (!name) return err("Give the goal a name.");
+    if (!(target > 0)) return err("Enter a target amount greater than zero.");
+    const old = ui.goalEditId ? state.goals.find(g => g.id === ui.goalEditId) : null;
+    const g = { name, target, by: by || "", owner: $("gOwner").value || "shared", created: old ? old.created || Date.now() : Date.now() };
+    if (await run(backend.saveGoal(ui.goalEditId, g), old ? "Goal updated" : "Goal created")) { resetGoalForm(); $("goalBox").open = false; }
+  });
+  $("cancelGoal").addEventListener("click", () => { resetGoalForm(); $("goalBox").open = false; });
+  $("goals").addEventListener("click", async ev => {
+    const b = ev.target.closest("button"); if (!b) return;
+    if (b.dataset.gadd) {
+      ui.editId = null;
+      const tg = state.goals.find(x => x.id === b.dataset.gadd);
+      if (isHouse() && tg && tg.owner !== "shared") $("fWho").value = tg.owner;
+      setType("save"); $("fGoal").value = b.dataset.gadd; $("fDate").value = defaultDate();
+      $("formPanel").scrollIntoView({ behavior: "smooth", block: "nearest" }); $("fAmount").focus();
+    } else if (b.dataset.gedit) {
+      const g = state.goals.find(x => x.id === b.dataset.gedit); if (!g) return;
+      ui.goalEditId = g.id; $("gOwner").value = g.owner; $("gName").value = g.name; $("gTarget").value = g.target; $("gDate").value = g.by || "";
+      $("saveGoal").textContent = "Save changes"; $("goalSummary").textContent = "Edit goal"; $("cancelGoal").hidden = false;
+      $("goalBox").open = true; $("gName").focus();
+    } else if (b.dataset.gask) { ui.confirm = "g:" + b.dataset.gask; renderGoals(); }
+    else if (b.dataset.nodel) { ui.confirm = null; renderGoals(); }
+    else if (b.dataset.gdel) {
+      const id = b.dataset.gdel; ui.confirm = null;
+      // keep the money: move this goal's entries to general savings
+      for (const e of state.entries.filter(x => x.goalId === id)) { await run(backend.update(e.id, Object.assign({}, e, { goalId: "" }))); }
+      await run(backend.removeGoal(id), "Goal deleted");
+    }
+  });
+
+  // ---------- settings ----------
+  $("settingsBtn").addEventListener("click", () => {
+    const p = $("settingsPanel"); p.hidden = !p.hidden;
+    const ps = people(), ob = state.settings.openingBy || {};
+    $("setCurrency").value = state.settings.currency || "MVR";
+    $("setName1").value = ps[0].name; $("setName2").value = (ps[1] || {}).name || "";
+    $("setOpen1").value = ob.p1 || ""; $("setOpen2").value = ob.p2 || "";
+  });
+  $("closeSettings").addEventListener("click", () => $("settingsPanel").hidden = true);
+  $("saveSettings").addEventListener("click", async () => {
+    const o1 = num($("setOpen1").value || "0"), o2 = num($("setOpen2").value || "0");
+    if (!(o1 >= 0) || !(o2 >= 0)) return toast("Starting savings can't be negative.");
+    const n1 = $("setName1").value.trim() || "Me", n2 = $("setName2").value.trim() || "My wife";
+    fmtCache = {};
+    const ok = await run(backend.saveSettings({ currency: $("setCurrency").value, openingBy: { p1: o1, p2: o2 }, opening: o1, people: [{ id: "p1", name: n1 }, { id: "p2", name: n2 }] }), "Settings saved");
+    if (ok) $("settingsPanel").hidden = true;
+  });
+
+  $("clearSamples").addEventListener("click", async () => {
+    const es = state.entries.filter(e => e.sample), gs = state.goals.filter(g => g.sample);
+    for (const e of es) await run(backend.remove(e.id));
+    for (const g of gs) await run(backend.removeGoal(g.id));
+    toast("Examples cleared");
+  });
+
+  // ---------- export, backup, restore ----------
+  function saveFile(name, content, okLabel) {
+    try {
+      const blob = new Blob([content], { type: name.endsWith(".csv") ? "text/csv" : "application/json" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      toast(okLabel + " as " + name);
+    } catch { toast("The file wasn't saved. Try again."); }
+  }
+  $("exportBtn").addEventListener("click", () => {
+    const gn = id => (state.goals.find(g => g.id === id) || {}).name || "";
+    const rows = [["Date", "Person", "Type", "Category", "Goal", "Note", "Amount", "Currency"]].concat(
+      state.entries.slice().sort((a, b) => a.date.localeCompare(b.date)).map(e => [e.date, pname(e.person), e.type, e.category || "", gn(e.goalId), e.note || "", e.amount, state.settings.currency]));
+    const csv = rows.map(r => r.map(v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v).join(",")).join("\r\n");
+    saveFile("pocket-ledger-" + todayISO() + ".csv", "\ufeff" + csv, "Exported");
+  });
+  $("backupBtn").addEventListener("click", () => {
+    const d = { app: "pocket-ledger", version: 2, entries: state.entries, goals: state.goals, settings: state.settings };
+    saveFile("pocket-ledger-backup-" + todayISO() + ".json", JSON.stringify(d, null, 2), "Backed up");
+  });
+  let pendingRestore = null;
+  $("restoreBtn").addEventListener("click", () => $("restoreFile").click());
+  $("restoreFile").addEventListener("change", async ev => {
+    const f = ev.target.files[0]; ev.target.value = "";
+    if (!f) return;
+    try {
+      const d = JSON.parse(await f.text());
+      if (!d || !Array.isArray(d.entries) || !Array.isArray(d.goals)) throw new Error();
+      pendingRestore = d;
+      $("restoreMsg").textContent = "Restore " + f.name + "? It has " + d.entries.length + " entries and " + d.goals.length + " goals, and will replace everything currently in Pocket Ledger.";
+      $("restoreBanner").hidden = false;
+    } catch { toast("That file isn't a Pocket Ledger backup."); }
+  });
+  $("restoreNo").addEventListener("click", () => { pendingRestore = null; $("restoreBanner").hidden = true; });
+  $("restoreYes").addEventListener("click", async () => {
+    if (!pendingRestore) return;
+    const d = pendingRestore; pendingRestore = null; $("restoreBanner").hidden = true;
+    if (!navigator.onLine) return toast("Restoring needs an internet connection.");
+    toast("Restoring…");
+    await run(backend.replaceAll(d), "Backup restored");
+  });
+
+  $("who").addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-view]"); if (!b) return;
+    ui.view = b.dataset.view; ui.confirm = null;
+    try { localStorage.setItem("pl-view", ui.view); } catch {}
+    if (ui.editId) resetForm();
+    render();
+  });
+  $("fWho").addEventListener("change", renderFormBits);
+
+  // ---------- Gemini (scanning) ----------
+  const KEY_LS = "pl-gemini-key", MODEL_LS = "pl-gemini-model";
+  const DEFAULT_MODEL = "gemini-3.8-flash", FALLBACK_MODEL = "gemini-2.5-flash";
+  const lsGet = k => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
+  const lsSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} };
+  const geminiKey = () => lsGet(KEY_LS).trim();
+  async function shrinkImage(file) {
+    let bmp;
+    try { bmp = await createImageBitmap(file); } catch { throw { code: "image_rejected" }; }
+    const max = 1600, sc = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(bmp.width * sc)); c.height = Math.max(1, Math.round(bmp.height * sc));
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+    if (bmp.close) bmp.close();
+    return c.toDataURL("image/jpeg", 0.85).split(",")[1];
+  }
+  async function geminiJson(prompt, files, signal) {
+    const key = geminiKey();
+    if (!key) throw { code: "no_key" };
+    if (!navigator.onLine) throw { code: "offline" };
+    const parts = [{ text: prompt }];
+    for (const f of files) parts.push({ inline_data: { mime_type: "image/jpeg", data: await shrinkImage(f) } });
+    if (signal && signal.aborted) throw { code: "cancelled" };
+    const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { response_mime_type: "application/json", temperature: 0.1 } });
+    const call = async model => {
+      try {
+        return await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent", {
+          method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key }, body, signal });
+      } catch (e) { throw { code: e && e.name === "AbortError" ? "cancelled" : "offline" }; }
+    };
+    const model = lsGet(MODEL_LS).trim() || DEFAULT_MODEL;
+    let r = await call(model);
+    if (r.status === 404 && model !== FALLBACK_MODEL) r = await call(FALLBACK_MODEL);
+    if (!r.ok) {
+      let msg = ""; try { msg = ((await r.json()).error || {}).message || ""; } catch {}
+      throw { code: r.status === 429 ? "rate_limited" : (r.status === 401 || r.status === 403 || /api.?key/i.test(msg)) ? "bad_key" : "http", message: msg };
+    }
+    const j = await r.json();
+    const cand = (j.candidates || [])[0];
+    const text = cand && cand.content ? (cand.content.parts || []).filter(p => !p.thought).map(p => p.text || "").join("") : "";
+    if (!text) throw { code: j.promptFeedback && j.promptFeedback.blockReason ? "refused" : "http" };
+    try { return JSON.parse(text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")); }
+    catch { throw { code: "http" }; }
+  }
+
+  // ---------- scan a receipt or screenshot ----------
+  let scanAbort = null, scanItems = [];
+  const TYPES = [["expense", "Spent"], ["income", "Income"], ["save", "Save"], ["withdraw", "Withdraw"]];
+  const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+  function openScanPicker() {
+    if (!geminiKey()) { openSettings(); setTimeout(() => $("setKey").focus(), 50); toast("Add your Gemini key first. It's free from Google AI Studio."); return; }
+    $("scanFile").click();
+  }
+  $("scanBtn").addEventListener("click", openScanPicker);
+  $("scanBtn2").addEventListener("click", openScanPicker);
+  $("scanMore").addEventListener("click", openScanPicker);
+  $("scanClose").addEventListener("click", () => { if (scanAbort) scanAbort.abort(); scanAbort = null; scanItems = []; $("scanPanel").hidden = true; });
+  $("scanFile").addEventListener("change", ev => {
+    const files = Array.from(ev.target.files || []); ev.target.value = "";
+    if (!files.length) return;
+    const max = 4;
+    if (files.length > max) toast("Reading the first " + max + " image" + (max === 1 ? "" : "s"));
+    startScan(files.slice(0, max));
+  });
+
+  function scanPrompt(n) {
+    const st = state.settings;
+    const who = isHouse() ? "the household (either person)" : pname(ui.view);
+    const goals = visibleGoals(isHouse() ? "all" : ui.view).map(g => g.name);
+    return [
+      "You are reading " + (n === 1 ? "a photo or screenshot" : n + " photos or screenshots") + " for a personal money tracker. Find each money transaction shown and reply with JSON only.",
+      "",
+      "Context:",
+      "- Today is " + todayISO() + ". The tracker's currency is " + (st.currency || "MVR") + ".",
+      "- People in the tracker: " + people().map(p => p.name).join(", ") + ". This was added while viewing: " + who + ".",
+      "- Expense categories: " + EXP_CATS.join(", ") + ".",
+      "- Income categories: " + INC_CATS.join(", ") + ".",
+      "- Savings goals: " + (goals.length ? goals.join(", ") : "none") + ".",
+      "",
+      "What to record:",
+      "- A shop receipt or bill: ONE expense for the final total actually paid (after discounts, including GST and service charge). Do not list line items separately. Put the shop name and 2-4 key items in the note.",
+      "- A bank app screen, transfer confirmation or SMS alert: each money-out is an expense, each money-in is income (salary, transfers received). A transfer clearly into the user's own savings account is type \"save\".",
+      "- A list of several transactions (for example a statement): one entry for each.",
+      "- Ignore balances, account or card numbers, and reference numbers. Never copy account or card numbers into the note.",
+      "",
+      "Rules:",
+      "- Do not guess. If the amount, the date, or whether money came in or went out is unclear, set that field to null and ask a question about it.",
+      "- date is the transaction date as YYYY-MM-DD. If the year is missing, use the most recent such date not after today. If no date is shown, set null and ask, offering \"Today\" with value \"" + todayISO() + "\".",
+      "- If the amount is in a different currency from " + (st.currency || "MVR") + ", put the original amount in amount, set currency to that code, and ask how much to record in " + (st.currency || "MVR") + ".",
+      "- category must be one of the categories above when one fits, otherwise \"Other\".",
+      "- Ask at most 2 short, plain questions per transaction, only when something is really unclear. Give 2-4 answer options when you can. Each option is {\"label\": what the button says, \"value\": the value to put in the field}. For type, values are expense, income, save or withdraw. For amount, values are plain numbers. For date, values are YYYY-MM-DD.",
+      "- confidence is high when everything is clearly readable, medium if you inferred something, low if the image is hard to read.",
+      "",
+      "Reply with exactly this JSON shape:",
+      '{"summary": "one short sentence on what you found", "transactions": [{"type": "expense" | "income" | "save" | "withdraw" | null, "amount": number | null, "currency": "MVR", "date": "YYYY-MM-DD" | null, "category": "...", "note": "...", "confidence": "high" | "medium" | "low", "questions": [{"field": "amount" | "date" | "type" | "category" | "note", "question": "...", "options": [{"label": "...", "value": "..."}]}]}]}',
+      "If there are no transactions in the image, return an empty transactions list and say why in summary."
+    ].join("\n");
+  }
+
+  function setScanStatus(html, busy) { $("scanStatus").innerHTML = (busy ? '<span class="spin" aria-hidden="true"></span>' : "") + html; }
+
+  async function startScan(files) {
+    if (scanAbort) scanAbort.abort();
+    const ctl = new AbortController(); scanAbort = ctl;
+    scanItems = [];
+    $("scanPanel").hidden = false; $("scanTitle").textContent = "Reading your image…";
+    $("scanList").innerHTML = ""; $("scanFoot").hidden = true; $("scanErr").hidden = true;
+    setScanStatus("Looking for amounts, dates and shop names. This takes a few seconds.", true);
+    $("scanPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+    try {
+      const res = await geminiJson(scanPrompt(files.length), files, ctl.signal);
+      if (scanAbort !== ctl) return;
+      scanAbort = null;
+      const list = Array.isArray(res && res.transactions) ? res.transactions : [];
+      const dv = isHouse() ? ($("fWho").value || "p1") : ui.view;
+      scanItems = list.map(t => {
+        const type = TYPES.some(x => x[0] === t.type) ? t.type : null;
+        const amount = typeof t.amount === "number" && isFinite(t.amount) && t.amount > 0 ? Math.round(t.amount * 100) / 100 : null;
+        const date = typeof t.date === "string" && ISO.test(t.date) ? t.date : null;
+        const cur = String(t.currency || state.settings.currency || "MVR").toUpperCase().slice(0, 3);
+        const qs = (Array.isArray(t.questions) ? t.questions : []).slice(0, 3).map(q => ({
+          field: String(q.field || ""), question: String(q.question || ""), picked: null,
+          options: (Array.isArray(q.options) ? q.options : []).slice(0, 4).map(o => ({ label: String(o.label ?? o.value ?? ""), value: String(o.value ?? o.label ?? "") }))
+        })).filter(q => q.question);
+        return {
+          include: true, type: type || "expense", typeKnown: !!type, amount, date, currency: cur,
+          category: String(t.category || "") || (type === "income" ? "Salary" : "Other"), note: String(t.note || "").slice(0, 80),
+          goalId: "", person: dv, confidence: String(t.confidence || ""), questions: qs
+        };
+      });
+      $("scanTitle").textContent = scanItems.length ? "Check what I found" : "Nothing to add";
+      setScanStatus(esc((res && res.summary) || (scanItems.length ? "" : "I couldn't find a transaction in that image. Try a clearer photo, or add it by hand.")), false);
+      renderScan();
+    } catch (e) {
+      if (scanAbort !== ctl) return;
+      scanAbort = null;
+      const code = e && e.code;
+      if (code === "cancelled") { $("scanPanel").hidden = true; return; }
+      $("scanTitle").textContent = "Couldn't read that";
+      const msg = {
+        no_key: "Add your Gemini key in Settings to use scanning.",
+        bad_key: "Google didn't accept the Gemini key on this device. Check it in Settings (copy it again from Google AI Studio).",
+        offline: "Scanning needs an internet connection. You can add the entry by hand and it will sync later.",
+        rate_limited: "Gemini's free limit was reached for now. Wait a minute and try again, or add it by hand.",
+        image_rejected: "That image couldn't be opened. Try a JPG or PNG photo or screenshot.",
+        refused: "I couldn't read that image. Try a different photo, or add the entry by hand."
+      }[code] || "Scanning didn't work this time. Check your connection and try again.";
+      setScanStatus(esc(msg), false);
+      $("scanFoot").hidden = false; $("scanAdd").hidden = true;
+    }
+  }
+
+  function dupOf(it) {
+    if (!it.amount || !it.date) return null;
+    return state.entries.find(e => e.date === it.date && Math.abs(+e.amount - it.amount) < 0.005 && e.type === it.type && e.person === it.person) || null;
+  }
+  function needs(it) {
+    const miss = [];
+    if (!(it.amount > 0)) miss.push("amount");
+    if (!it.date || !ISO.test(it.date)) miss.push("date");
+    if (it.currency && it.currency !== (state.settings.currency || "MVR") && !it.currencyOk) miss.push("amount");
+    return miss;
+  }
+
+  function renderScan() {
+    const cur = state.settings.currency || "MVR";
+    const peopleOpts = sel => people().map(p => `<option value="${p.id}"${p.id === sel ? " selected" : ""}>${esc(p.name)}</option>`).join("");
+    $("scanList").innerHTML = scanItems.map((it, i) => {
+      const miss = needs(it);
+      const goalMode = it.type === "save" || it.type === "withdraw";
+      const foreign = it.currency && it.currency !== cur && !it.currencyOk;
+      const dup = dupOf(it);
+      const cats = (it.type === "income" ? INC_CATS : EXP_CATS);
+      const qs = it.questions.map((q, qi) => `<div class="q${q.picked !== null ? " done" : ""}"><span>${esc(q.question)}</span>${q.options.length ? `<div class="opts">${q.options.map((o, oi) => `<button type="button" data-i="${i}" data-q="${qi}" data-o="${oi}" aria-pressed="${q.picked === oi}">${esc(o.label)}</button>`).join("")}</div>` : ""}</div>`).join("");
+      return `<div class="scard${it.include ? "" : " off"}">
+        <div class="scard-top"><label><input type="checkbox" data-i="${i}" data-k="include" ${it.include ? "checked" : ""}> Add this</label>${it.confidence === "low" || miss.length || it.questions.some(q => q.picked === null) ? '<span class="flag">Check this</span>' : ""}</div>
+        ${qs}
+        ${foreign ? `<div class="q"><span>The image shows ${esc(it.currency)} ${esc(String(it.amount ?? ""))}. Enter the amount in ${esc(cur)} below, then confirm.</span><div class="opts"><button type="button" data-i="${i}" data-k="currencyOk">Amount is in ${esc(cur)}</button></div></div>` : ""}
+        ${isHouse() ? `<div class="field"><label for="sw${i}">Whose entry?</label><select id="sw${i}" data-i="${i}" data-k="person">${peopleOpts(it.person)}</select></div>` : ""}
+        <div class="row2">
+          <div class="field${it.typeKnown ? "" : " need"}"><label for="st${i}">Type</label><select id="st${i}" data-i="${i}" data-k="type">${TYPES.map(([v, l]) => `<option value="${v}"${v === it.type ? " selected" : ""}>${l}</option>`).join("")}</select></div>
+          <div class="field${miss.includes("amount") ? " need" : ""}"><label for="sa${i}">Amount (${esc(cur)})</label><input id="sa${i}" class="num" type="number" inputmode="decimal" min="0" step="0.01" data-i="${i}" data-k="amount" value="${it.amount ?? ""}"></div>
+          <div class="field${miss.includes("date") ? " need" : ""}"><label for="sd${i}">Date</label><input id="sd${i}" type="date" data-i="${i}" data-k="date" value="${it.date || ""}"></div>
+          ${goalMode
+            ? `<div class="field"><label for="sg${i}">Goal</label><select id="sg${i}" data-i="${i}" data-k="goalId"><option value="">General savings</option>${visibleGoals(it.person).map(g => `<option value="${g.id}"${g.id === it.goalId ? " selected" : ""}>${esc(g.name)}</option>`).join("")}</select></div>`
+            : `<div class="field"><label for="sc${i}">Category</label><input id="sc${i}" list="scanCats${i}" data-i="${i}" data-k="category" value="${esc(it.category)}"><datalist id="scanCats${i}">${cats.map(c => `<option value="${esc(c)}">`).join("")}</datalist></div>`}
+        </div>
+        <div class="field"><label for="sn${i}">Note</label><input id="sn${i}" maxlength="80" data-i="${i}" data-k="note" value="${esc(it.note)}"></div>
+        ${dup ? `<div class="dup">You already have ${esc(money(+dup.amount))} on this date${dup.note ? " (" + esc(dup.note) + ")" : ""}. Untick this if it's the same one.</div>` : ""}
+      </div>`;
+    }).join("");
+    const n = scanItems.filter(x => x.include).length;
+    $("scanFoot").hidden = false;
+    $("scanAdd").hidden = !scanItems.length;
+    $("scanAdd").textContent = n === 1 ? "Add 1 entry" : "Add " + n + " entries";
+    $("scanAdd").disabled = !n;
+  }
+
+  function applyAnswer(it, field, value) {
+    if (field === "amount") { const v = num(value); if (v > 0) { it.amount = v; it.currencyOk = true; } }
+    else if (field === "date") { if (ISO.test(value)) it.date = value; }
+    else if (field === "type") { if (TYPES.some(t => t[0] === value)) { it.type = value; it.typeKnown = true; } }
+    else if (field === "category") it.category = value;
+    else if (field === "note") it.note = value.slice(0, 80);
+  }
+
+  $("scanList").addEventListener("click", ev => {
+    const b = ev.target.closest("button"); if (!b) return;
+    const it = scanItems[+b.dataset.i]; if (!it) return;
+    if (b.dataset.k === "currencyOk") { it.currencyOk = true; renderScan(); return; }
+    const q = it.questions[+b.dataset.q]; if (!q) return;
+    q.picked = +b.dataset.o; applyAnswer(it, q.field, q.options[q.picked].value);
+    renderScan();
+  });
+  $("scanList").addEventListener("input", ev => {
+    const el = ev.target, it = scanItems[+el.dataset.i]; if (!it || !el.dataset.k) return;
+    const k = el.dataset.k;
+    if (k === "amount") { it.amount = num(el.value) > 0 ? num(el.value) : null; it.currencyOk = true; }
+    else if (k === "include") it.include = el.checked;
+    else it[k] = el.value;
+    if (k === "type") it.typeKnown = true;
+    if (k === "include" || k === "type" || k === "person") renderScan();
+  });
+  $("scanList").addEventListener("change", ev => {
+    const k = ev.target.dataset.k;
+    if (k === "amount" || k === "date") renderScan();
+  });
+
+  $("scanAdd").addEventListener("click", async () => {
+    const chosen = scanItems.filter(x => x.include);
+    const bad = chosen.filter(x => needs(x).length);
+    if (bad.length) { $("scanErr").textContent = "Fill in the highlighted amount or date on " + (bad.length === 1 ? "1 entry" : bad.length + " entries") + " first."; $("scanErr").hidden = false; renderScan(); return; }
+    $("scanErr").hidden = true; $("scanAdd").disabled = true;
+    let added = 0;
+    for (const it of chosen) {
+      const e = { type: it.type, amount: it.amount, date: it.date, note: (it.note || "").trim(), created: Date.now() + added, person: it.person, source: "scan" };
+      if (it.type === "save" || it.type === "withdraw") { e.goalId = it.goalId || ""; e.category = "Savings"; }
+      else e.category = (it.category || "").trim() || (it.type === "income" ? "Salary" : "Other");
+      if (!(await run(backend.add(e)))) break;
+      added++;
+    }
+    if (added) {
+      toast(added === 1 ? "Added 1 entry" : "Added " + added + " entries");
+      const m = chosen[0].date.slice(0, 7);
+      if (m !== ui.month) { ui.month = m; render(); }
+      scanItems = []; $("scanPanel").hidden = true;
+    } else $("scanAdd").disabled = false;
+  });
+
+  // ---------- settings: this device, household, account ----------
+  function openSettings() { if ($("settingsPanel").hidden) $("settingsBtn").click(); $("settingsPanel").scrollIntoView({ behavior: "smooth", block: "start" }); }
+  function inviteUrl() { return fbctx ? location.origin + location.pathname + "?join=" + fbctx.hid : ""; }
+  $("settingsBtn").addEventListener("click", () => {
+    $("setKey").value = geminiKey(); $("setModel").value = lsGet(MODEL_LS);
+    $("inviteLink").value = inviteUrl();
+    const n = household && household.members ? household.members.length : 1;
+    $("hhInfo").textContent = n >= 2 ? "You're both connected. Everyone in the household sees the same entries." : "Only you are connected so far. Send this link to your partner. They open it, create an account and tap Join household.";
+    $("acctInfo").textContent = fbctx && fbctx.user ? "Signed in as " + (fbctx.user.email || "you") + "." : "";
+    $("shareInvite").hidden = !navigator.share;
+  });
+  $("saveSettings").addEventListener("click", () => { lsSet(KEY_LS, $("setKey").value.trim()); lsSet(MODEL_LS, $("setModel").value.trim()); });
+  $("copyInvite").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(inviteUrl()); toast("Invite link copied"); }
+    catch { $("inviteLink").select(); toast("Select and copy the link"); }
+  });
+  $("shareInvite").addEventListener("click", () => { navigator.share({ title: "Pocket Ledger", text: "Join our household in Pocket Ledger", url: inviteUrl() }).catch(() => {}); });
+  $("signOutBtn").addEventListener("click", () => { if (fbctx) fbctx.signOut(); });
+
+  // ---------- install button ----------
+  let installEvt = null;
+  window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; $("installBtn").hidden = false; });
+  $("installBtn").addEventListener("click", async () => { if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch {} installEvt = null; $("installBtn").hidden = true; });
+  window.addEventListener("appinstalled", () => { $("installBtn").hidden = true; toast("Pocket Ledger is installed"); });
+  window.addEventListener("online", render);
+  window.addEventListener("offline", render);
+
+  // ---------- boot (called by app.js once signed in) ----------
+  let viewChosen = false;
+  try { if (localStorage.getItem("pl-view")) viewChosen = true; } catch {}
+  $("fDate").value = defaultDate();
+  window.PL = {
+    boot(fb) {
+      fbctx = fb;
+      backend = firebaseBackend(fb);
+      render();
+    }
+  };
+})();
+</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
