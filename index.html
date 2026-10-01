@@ -176,6 +176,34 @@ body .wrap { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .act-card.done { opacity: .75; }
 .act-line { font-size: .88rem; color: var(--ink); }
 .act-line.bad { color: var(--neg); }
+.cat-hint { color: var(--accent); font-size: .76rem; }
+.chat-head .row-btns { flex-wrap: nowrap; }
+.chat-head h2 { white-space: nowrap; }
+.tx { transition: transform .15s ease; touch-action: pan-y; }
+.tx .acts .icon-btn { padding: 6px 9px; }
+@media (hover: none) {
+  .tx .acts { display: none; }
+  .tx.open .acts { display: flex; grid-column: 1 / -1; gap: 8px; }
+  .tx.open .acts .icon-btn { flex: 1; padding: 11px 12px; font-size: .9rem; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; color: var(--ink); }
+  .tx.open .acts .icon-btn.danger, .tx.open .acts [data-ask] { color: var(--neg); }
+  .tx { cursor: pointer; }
+}
+.tx.open { background: var(--sunk); border-radius: 10px; padding-inline: 8px; }
+.trend .mon.sel .hit { fill: var(--sunk); stroke: var(--accent); stroke-width: 1.5; }
+.trend-detail { border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; display: grid; gap: 6px; font-size: .88rem; }
+.td-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.td-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; color: var(--ink-2); }
+.td-grid b { display: block; color: var(--ink); }
+@media (max-width: 420px) { .td-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.trend-detail small { color: var(--ink-3); }
+.chips.follow { margin-top: 2px; }
+.chips.follow .chipq { background: var(--surface); font-size: .8rem; padding: 6px 10px; }
+.quick { position: fixed; inset: 0; z-index: 35; background: rgba(0,0,0,.45); display: grid; align-items: end; justify-items: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+.quick-card { width: min(100%, 440px); background: var(--surface); border-radius: 18px; padding: 20px; display: grid; gap: 10px; }
+.quick-card h2 { font-size: 1.2rem; }
+.quick-card p { margin: 0; }
+.quick-card .primary { padding: 14px; font-size: 1rem; }
+.quick-card .linkish { justify-self: center; }
 * { box-sizing: border-box; }
 html { color-scheme: light; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
@@ -504,6 +532,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       <section class="panel">
         <div class="panel-head"><h2>Last 12 months</h2><span class="legend"><span><i style="background:var(--c-left)"></i>Income</span><span><i style="background:var(--c-spent)"></i>Spent</span></span></div>
         <div class="trend" id="trendChart"></div>
+        <div class="trend-detail" id="trendDetail" hidden></div>
         <p class="hint" style="margin:0" id="trendNote"></p>
       </section>
     </div>
@@ -524,7 +553,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
             <input id="fAmount" class="amount-in num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" required></div>
           <div class="row2">
             <div class="field" id="catField"><label for="fCat">Category</label>
-              <input id="fCat" list="catList" autocomplete="off" placeholder="Pick or type"><datalist id="catList"></datalist></div>
+              <input id="fCat" list="catList" autocomplete="off" placeholder="Pick or type"><datalist id="catList"></datalist><small class="cat-hint" id="catHint" hidden></small></div>
             <div class="field" id="goalField" hidden><label for="fGoal">Goal</label>
               <select id="fGoal"></select></div>
             <div class="field"><label for="fDate">Date</label><input id="fDate" type="date" required></div>
@@ -593,10 +622,18 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   <div class="chat-head"><h2>Ask about your money</h2><span class="row-btns"><button class="icon-btn spk" id="chatSpeak" type="button" title="Read voice answers aloud" aria-label="Read voice answers aloud"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg></button><button class="icon-btn" id="chatClear" type="button">New chat</button><button class="icon-btn" id="chatClose" type="button">Close</button></span></div>
   <div class="chat-msgs" id="chatMsgs" aria-live="polite"></div>
   <div class="rec-bar" id="chatRecBar" hidden><span class="rec-dot"></span><span>Listening… <b id="chatRecTime">0:00</b></span><span>Tap the mic again to send</span><button class="icon-btn" type="button" id="chatRecCancel">Cancel</button></div>
-  <form class="chat-form" id="chatForm"><button class="mic" id="chatMic" type="button" aria-label="Speak"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><textarea id="chatInput" rows="1" placeholder="Ask, or tap the mic and just say it" aria-label="Your message"></textarea><button class="primary" id="chatSend" type="submit">Ask</button><button class="ghost" id="chatStop" type="button" hidden>Stop</button></form>
+  <form class="chat-form" id="chatForm"><button class="mic" id="chatMic" type="button" aria-label="Speak"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><textarea id="chatInput" rows="1" placeholder="Ask, or tap the mic" aria-label="Your message"></textarea><button class="primary" id="chatSend" type="submit">Ask</button><button class="ghost" id="chatStop" type="button" hidden>Stop</button></form>
 </section>
 <div class="toast" id="toast" hidden></div>
 
+<div class="quick" id="quick" hidden>
+  <div class="quick-card">
+    <h2 id="quickTitle">Quick action</h2>
+    <p class="muted" id="quickSub"></p>
+    <button class="primary" type="button" id="quickGo">Go</button>
+    <button class="linkish" type="button" id="quickX">Not now</button>
+  </div>
+</div>
 <div class="lock" id="lock" hidden>
   <div class="lock-card">
     <img src="icons/icon-192.png" alt="" width="56" height="56">
@@ -891,12 +928,12 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       if (e.type === "save") title = "Saved" + (goalName(e.goalId) ? " for " + goalName(e.goalId) : "");
       if (e.type === "withdraw") title = "Took out of savings" + (goalName(e.goalId) ? " (" + goalName(e.goalId) + ")" : "");
       const confirming = ui.confirm === e.id;
-      html += `<li class="tx"><span class="dot" style="background:${meta[0]}"></span>
+      html += `<li class="tx${ui.openRow === e.id ? " open" : ""}" data-id="${e.id}"><span class="dot" style="background:${meta[0]}"></span>
         <div class="what"><b>${esc(title || "Untitled")}${e.split ? '<span class="owner-tag">Split</span>' : ""}${e.recurringId ? '<span class="owner-tag">Monthly</span>' : ""}</b><small>${isHouse() ? `<i class="pdot" style="background:${pcolor(e.person)}"></i>` : ""}${esc([isHouse() ? pname(e.person) : "", e.note || (e.type === "expense" ? "Spent" : e.type === "income" ? "Income" : "")].filter(Boolean).join(" · "))}</small></div>
         <span class="amt num ${meta[1]}">${meta[2]}${esc(money(+e.amount))}</span>
         <span class="acts">${readOnly ? "" : confirming
           ? `<button class="icon-btn danger" data-del="${e.id}">Delete</button><button class="icon-btn" data-nodel="1">Keep</button>`
-          : `<button class="icon-btn" data-edit="${e.id}" aria-label="Edit entry">Edit</button><button class="icon-btn" data-ask="${e.id}" aria-label="Delete entry">✕</button>`}</span></li>`;
+          : `<button class="icon-btn" data-edit="${e.id}" aria-label="Edit entry">Edit</button><button class="icon-btn" data-ask="${e.id}" aria-label="Delete entry">Delete</button>`}</span></li>`;
     });
     list.innerHTML = html;
   }
@@ -1963,8 +2000,8 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       "",
       "Conversation so far:", historyText(), "",
       voice ? "Latest message: the attached voice recording. First write exactly what was said in \"heard\"." : "Latest message: " + q, "",
-      'Reply with exactly: {"heard": ' + (voice ? '"what was said"' : "null") + ', "calls": [{"tool": "...", "args": {...}}], "reply": null}',
-      "If nothing needs looking up or changing (a greeting, a question about the app, or a clarifying question), return an empty calls list and put your reply in reply."
+      'Reply with exactly: {"heard": ' + (voice ? '"what was said"' : "null") + ', "calls": [{"tool": "...", "args": {...}}], "reply": null, "suggestions": []}',
+      "If nothing needs looking up or changing (a greeting, a question about the app, or a clarifying question), return an empty calls list and put your reply in reply, with 0-3 short suggestions the user might tap next (for a clarifying question, likely answers)."
     ].join("\n");
   }
   function answerPrompt(q, results) {
@@ -1976,7 +2013,8 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       "", "Context:", chatContext(), "",
       "Conversation so far:", historyText(), "",
       "Latest message: " + q, "",
-      "Results (JSON):", JSON.stringify(results).slice(0, 60000)
+      "Results (JSON):", JSON.stringify(results).slice(0, 60000), "",
+      'Reply with JSON only: {"reply": "your answer", "suggestions": ["...", "..."]}. suggestions are 2-3 short follow-ups the user might want next, written as the user would say them (for example "Show those entries", "Compare with last month", "Set an eating out budget of 1,500"). Make them specific to this answer and doable in the app.'
     ].join("\n");
   }
 
@@ -2057,7 +2095,9 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
         : `<div class="msg ai${m.error ? " err" : ""}"><div>${m.pending ? '<span class="spin" aria-hidden="true"></span>' + esc(m.pendingText || "Thinking…") : fmtReply(m.text)}</div>` +
           (m.actions && m.actions.length ? `<div class="act-card${m.done ? " done" : ""}">${m.actions.map(x => `<div class="act-line${x.invalid ? " bad" : ""}">${esc(x.lines.join(" · "))}</div>`).join("")}` +
             (m.done ? `<small>${m.done === "yes" ? "Saved ✓" : "Not saved"}</small>` : m.actions.some(x => !x.invalid) ? `<div class="row-btns"><button class="primary" type="button" data-ok="${i}">Confirm</button>${m.actions.length === 1 && m.actions[0].tool === "propose_entries" ? `<button class="ghost" type="button" data-editact="${i}">Edit first</button>` : ""}<button class="icon-btn" type="button" data-no="${i}">Not now</button></div>` : "") + `</div>` : "") +
-          (m.note ? `<small>${esc(m.note)}</small>` : "") + (m.action === "settings" ? `<button type="button" class="ghost" data-act="settings">Open Settings</button>` : "") + `</div>`).join("");
+          (m.note ? `<small>${esc(m.note)}</small>` : "") +
+          (i === chat.msgs.length - 1 && !m.pending && !chat.busy && m.sugg && m.sugg.length ? `<div class="chips follow">${m.sugg.filter(x => typeof x === "string" && x.trim()).slice(0, 3).map(x => `<button type="button" class="chipq">${esc(x.trim().slice(0, 80))}</button>`).join("")}</div>` : "") +
+          (m.action === "settings" ? `<button type="button" class="ghost" data-act="settings">Open Settings</button>` : "") + `</div>`).join("");
     }
     box.scrollTop = box.scrollHeight;
     $("chatSend").disabled = chat.busy || rec.on;
@@ -2171,6 +2211,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       const calls = (Array.isArray(plan && plan.calls) ? plan.calls : []).slice(0, 4);
       if (!calls.length) {
         reply.text = (plan && plan.reply) || "Could you say that another way? For example: \"How much did I spend on eating out this month?\"";
+        reply.sugg = Array.isArray(plan && plan.suggestions) ? plan.suggestions : [];
       } else {
         const results = [], actions = [], looked = [];
         for (const c of calls) {
@@ -2185,7 +2226,10 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
           results.push({ tool: name, args, result: fn ? fn(args) : "Unknown lookup" });
           if (fn) looked.push(TOOL_LABEL[name] || name);
         }
-        reply.text = await geminiText(answerPrompt(q, results), [], { signal: ctl.signal, temperature: 0.3 });
+        const raw = await geminiText(answerPrompt(q, results), [], { json: true, signal: ctl.signal, temperature: 0.3 });
+        let ans = null; try { ans = parseJsonText(raw); } catch {}
+        reply.text = ans && typeof ans.reply === "string" ? ans.reply : raw;
+        reply.sugg = ans && Array.isArray(ans.suggestions) ? ans.suggestions : [];
         if (looked.length) reply.note = "Looked up: " + [...new Set(looked)].join(", ");
         if (actions.length) reply.actions = actions;
       }
@@ -2210,6 +2254,95 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     reply.pending = false; chat.busy = false; chat.abort = null;
     renderChat();
   }
+
+  // ======================================================================
+  // Polish: category memory, home-screen shortcuts, row actions,
+  // trend month details, follow-up suggestions in chat.
+  // ======================================================================
+
+  // ---------- 1. category memory (learned from your shared entries) ----------
+  const merchantKey = note => String(note || "").toLowerCase().split(/\s[–—-]\s|,|\(|:/)[0].replace(/^(transfer to|from|paid back|loan to|loan from)\s+/, "").replace(/[^a-z0-9 .&']/g, " ").replace(/\s+/g, " ").trim();
+  function guessCategory(note, type) {
+    const k = merchantKey(note); if (k.length < 2) return "";
+    const hits = state.entries.filter(e => e.type === type && e.category && e.category !== "Other" && !e.loanId && merchantKey(e.note) === k)
+      .sort((a, b) => (b.created || 0) - (a.created || 0));
+    if (hits.length) return hits[0].category;
+    const loose = state.entries.filter(e => e.type === type && e.category && e.category !== "Other" && !e.loanId && k.length >= 3 && merchantKey(e.note).startsWith(k))
+      .sort((a, b) => (b.created || 0) - (a.created || 0));
+    return loose.length ? loose[0].category : "";
+  }
+  $("fNote").addEventListener("input", () => {
+    if (ui.type === "save" || ui.type === "withdraw") return;
+    const c = guessCategory($("fNote").value, ui.type), cat = $("fCat");
+    if (c && (!cat.value || cat.dataset.auto === "1")) { cat.value = c; cat.dataset.auto = "1"; $("catHint").textContent = "Category from your past entries"; $("catHint").hidden = false; }
+    else if (!c && cat.dataset.auto === "1") { cat.value = ""; cat.dataset.auto = ""; $("catHint").hidden = true; }
+  });
+  $("fCat").addEventListener("input", () => { $("fCat").dataset.auto = ""; $("catHint").hidden = true; });
+  resetForm = (orig => function () { orig(); $("fCat").dataset.auto = ""; $("catHint").hidden = true; })(resetForm);
+  // scans: if Gemini said "Other" but we've seen this shop before, use what you used last time
+  const learnScan = () => scanItems.forEach(it => { if ((!it.category || it.category === "Other") && it.note) { const c = guessCategory(it.note, it.type); if (c) it.category = c; } });
+  renderScan = (orig => function () { learnScan(); orig(); })(renderScan);
+
+  // ---------- 2. home-screen shortcuts (long-press the app icon) ----------
+  function handleShortcut() {
+    const act = new URLSearchParams(location.search).get("action");
+    if (!act) return;
+    history.replaceState(null, "", location.pathname);
+    const show = (title, sub, btn, fn) => {
+      $("quickTitle").textContent = title; $("quickSub").textContent = sub; $("quickGo").textContent = btn;
+      $("quick").hidden = false;
+      $("quickGo").onclick = () => { $("quick").hidden = true; fn(); };
+    };
+    if (act === "scan") show("Scan a receipt", "Take a photo or pick a screenshot.", "Open camera or gallery", openScanPicker);
+    else if (act === "voice") show("Talk to Pocket Ledger", "Say what happened, like \"Spent 85 on coffee\".", "Start talking", () => { openChat(); startRec(); });
+    else if (act === "chat") openChat();
+    else if (act === "add") { setType("expense"); $("formPanel").scrollIntoView({ behavior: "smooth", block: "start" }); setTimeout(() => $("fAmount").focus(), 300); }
+  }
+  $("quickX").addEventListener("click", () => { $("quick").hidden = true; });
+
+  // ---------- 3. bigger touch actions on entries: tap or swipe a row ----------
+  ui.openRow = null;
+  $("ledger").addEventListener("click", ev => {
+    if (ev.target.closest("button")) return;
+    const li = ev.target.closest("li.tx"); if (!li) return;
+    ui.openRow = ui.openRow === li.dataset.id ? null : li.dataset.id; ui.confirm = null; renderLedger();
+  });
+  let sw = null;
+  $("ledger").addEventListener("touchstart", ev => { const li = ev.target.closest("li.tx"); if (li) sw = { id: li.dataset.id, x: ev.touches[0].clientX, y: ev.touches[0].clientY, li }; }, { passive: true });
+  $("ledger").addEventListener("touchmove", ev => {
+    if (!sw) return; const dx = ev.touches[0].clientX - sw.x, dy = ev.touches[0].clientY - sw.y;
+    if (Math.abs(dy) > 30) { sw.li.style.transform = ""; sw = null; return; }
+    if (dx < 0 && Math.abs(dx) > Math.abs(dy)) sw.li.style.transform = "translateX(" + Math.max(dx, -60) + "px)";
+  }, { passive: true });
+  $("ledger").addEventListener("touchend", ev => {
+    if (!sw) return; const dx = (ev.changedTouches[0] || {}).clientX - sw.x; sw.li.style.transform = "";
+    if (dx < -45) { ui.openRow = sw.id; ui.confirm = null; renderLedger(); }
+    else if (dx > 45 && ui.openRow === sw.id) { ui.openRow = null; renderLedger(); }
+    sw = null;
+  });
+
+  // ---------- 4. trend chart: tap a month for its details ----------
+  ui.trendSel = null;
+  function trendDetail(k) {
+    const who = ui.view;
+    const es = state.entries.filter(e => (e.date || "").slice(0, 7) === k && (who === "all" || e.person === who));
+    const inc = sum(es.filter(e => e.type === "income"), e => +e.amount), out = sum(es.filter(e => e.type === "expense"), e => +e.amount);
+    const sav = sum(es, e => e.type === "save" ? +e.amount : e.type === "withdraw" ? -e.amount : 0);
+    const cats = {}; es.filter(e => e.type === "expense").forEach(e => cats[e.category || "Other"] = (cats[e.category || "Other"] || 0) + +e.amount);
+    const top = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
+    const rate = inc > 0 ? Math.round((inc - out) / inc * 100) : null;
+    $("trendDetail").hidden = false;
+    $("trendDetail").innerHTML = `<div class="td-head"><b>${esc(monthName(k))}</b>${k !== ui.month ? `<button class="ghost" type="button" id="trendGo">Open this month</button>` : `<span class="muted">Showing now</span>`}</div>
+      <div class="td-grid num"><span>In <b>${esc(money(inc, { whole: true }))}</b></span><span>Out <b>${esc(money(out, { whole: true }))}</b></span><span>Saved <b>${esc(money(sav, { whole: true }))}</b></span><span>Kept <b>${rate === null ? "–" : rate + "%"}</b></span></div>
+      ${top ? `<small>Biggest spend: ${esc(top[0])}, ${esc(money(top[1], { whole: true }))}</small>` : `<small>No spending recorded.</small>`}`;
+    const go = $("trendGo"); if (go) go.onclick = () => { ui.month = k; ui.trendSel = null; render(); };
+    document.querySelectorAll("#trendChart g.mon").forEach(g => g.classList.toggle("sel", g.dataset.k === k));
+  }
+  // replace the old "tap = jump" behaviour with "tap = details"
+  const trendBox = $("trendChart"), trendClone = trendBox.cloneNode(false);
+  trendBox.parentNode.replaceChild(trendClone, trendBox);
+  trendClone.addEventListener("click", ev => { const g = ev.target.closest("g.mon"); if (!g) return; ui.trendSel = g.dataset.k; trendDetail(g.dataset.k); });
+  renderTrend = (orig => function () { orig(); if (ui.trendSel) trendDetail(ui.trendSel); else $("trendDetail").hidden = true; })(renderTrend);
 
   // ---------- settings: this device, household, account ----------
   function openSettings() { if ($("settingsPanel").hidden) $("settingsBtn").click(); $("settingsPanel").scrollIntoView({ behavior: "smooth", block: "start" }); }
@@ -2260,7 +2393,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       backend = firebaseBackend(fb);
       render();
       $("lnDate").value = todayISO();
-      (function waitReady() { if (state.ready) takeSharedFiles(); else setTimeout(waitReady, 300); })();
+      (function waitReady() { if (state.ready) { takeSharedFiles(); handleShortcut(); } else setTimeout(waitReady, 300); })();
     }
   };
 

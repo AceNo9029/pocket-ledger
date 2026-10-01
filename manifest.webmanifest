@@ -43,5 +43,55 @@
       ]
     }
   },
-  "id": "./"
+  "id": "./",
+  "shortcuts": [
+    {
+      "name": "Scan a receipt",
+      "short_name": "Scan",
+      "url": "./?action=scan",
+      "icons": [
+        {
+          "src": "icons/sc-scan.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Talk to Pocket Ledger",
+      "short_name": "Talk",
+      "url": "./?action=voice",
+      "icons": [
+        {
+          "src": "icons/sc-mic.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Add an expense",
+      "short_name": "Add",
+      "url": "./?action=add",
+      "icons": [
+        {
+          "src": "icons/sc-add.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Ask about your money",
+      "short_name": "Ask",
+      "url": "./?action=chat",
+      "icons": [
+        {
+          "src": "icons/sc-chat.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
 }
