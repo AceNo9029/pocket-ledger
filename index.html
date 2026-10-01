@@ -274,12 +274,19 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       <div class="field"><label for="setName2">Second person's name</label><input id="setName2" maxlength="20"></div>
       <div class="field"><label for="setOpen2" id="setOpen2L">Savings they already had</label><input id="setOpen2" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
     </div>
+    <div class="row2">
+      <div class="field"><label for="setBank1" id="setBank1L">Name on first person's bank account</label><input id="setBank1" maxlength="80" spellcheck="false" placeholder="As shown on transfers"></div>
+      <div class="field"><label for="setBank2" id="setBank2L">Name on second person's bank account</label><input id="setBank2" maxlength="80" spellcheck="false" placeholder="As shown on transfers"></div>
+      <div class="field"><label for="setAcct1" id="setAcct1L">First person's account numbers (last 4 digits)</label><input id="setAcct1" maxlength="40" inputmode="numeric" spellcheck="false" placeholder="e.g. 5369"></div>
+      <div class="field"><label for="setAcct2" id="setAcct2L">Second person's account numbers (last 4 digits)</label><input id="setAcct2" maxlength="40" inputmode="numeric" spellcheck="false" placeholder="e.g. 1234"></div>
+    </div>
+    <p class="hint" style="margin:0">These help scanning tell whose transfer it is and whether money went out or came in. People who pay you often save you under a nickname, so the last 4 digits of your account number are the most reliable. Only the last 4 digits are kept. Separate several with commas.</p>
     <p class="hint" style="margin:0">"Savings they already had" is each person's starting balance before you began logging here. It counts toward total savings but not toward any goal.</p>
     <div class="setsec">
       <h3>Scanning on this device</h3>
       <div class="field"><label for="setKey">Gemini API key</label><input id="setKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key from Google AI Studio"></div>
       <p class="hint" style="margin:0">Kept on this device only, never in the shared data. Get a free key at aistudio.google.com, then Get API key.</p>
-      <details class="box"><summary>Advanced</summary><div><div class="field"><label for="setModel">Gemini model</label><input id="setModel" spellcheck="false" placeholder="gemini-3.8-flash"></div></div></details>
+      <details class="box"><summary>Advanced</summary><div><div class="field"><label for="setModel">Gemini model</label><input id="setModel" spellcheck="false" placeholder="Automatic (gemini-3.8-flash)"></div></div></details>
     </div>
     <div><button class="primary" id="saveSettings">Save settings</button></div>
     <div class="setsec">
@@ -444,7 +451,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const EXP_CATS = ["Food & groceries","Eating out","Rent & bills","Transport","Phone & internet","Shopping","Health","Family & gifts","Entertainment","Other"];
+  const EXP_CATS = ["Food & groceries","Eating out","Rent & bills","Transport","Phone & internet","Shopping","Health","Education","Family & gifts","Entertainment","Other"];
   const INC_CATS = ["Salary","Side income","Overtime","Gift","Other"];
   const LS_KEY = "pocket-ledger-v1";
 
@@ -463,6 +470,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   const people = () => state.settings.people || DEFAULT_PEOPLE;
   const pname = id => id === "shared" ? "Shared" : ((people().find(x => x.id === id) || {}).name || "Someone");
   const isHouse = () => ui.view === "all";
+  const last4 = v => String(v || "").split(/[,\s]+/).map(x => x.replace(/\D/g, "").slice(-4)).filter(x => x.length === 4).join(", ");
   const poss = id => { const n = pname(id); return /^me$/i.test(n) ? "your" : n + "'s"; };
   const viewEntries = () => isHouse() ? state.entries : state.entries.filter(e => e.person === ui.view);
   const visibleGoals = who => { who = who || ui.view; return who === "all" ? state.goals : state.goals.filter(g => g.owner === who || g.owner === "shared"); };
@@ -876,7 +884,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     if (!(o1 >= 0) || !(o2 >= 0)) return toast("Starting savings can't be negative.");
     const n1 = $("setName1").value.trim() || "Me", n2 = $("setName2").value.trim() || "My wife";
     fmtCache = {};
-    const ok = await run(backend.saveSettings({ currency: $("setCurrency").value, openingBy: { p1: o1, p2: o2 }, opening: o1, people: [{ id: "p1", name: n1 }, { id: "p2", name: n2 }] }), "Settings saved");
+    const ok = await run(backend.saveSettings({ currency: $("setCurrency").value, openingBy: { p1: o1, p2: o2 }, opening: o1, people: [{ id: "p1", name: n1, bank: $("setBank1").value.trim(), acct: last4($("setAcct1").value) }, { id: "p2", name: n2, bank: $("setBank2").value.trim(), acct: last4($("setAcct2").value) }] }), "Settings saved");
     if (ok) $("settingsPanel").hidden = true;
   });
 
@@ -940,13 +948,13 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
 
   // ---------- Gemini (scanning) ----------
   const KEY_LS = "pl-gemini-key", MODEL_LS = "pl-gemini-model";
-  const DEFAULT_MODEL = "gemini-3.8-flash", FALLBACK_MODEL = "gemini-2.5-flash";
+  const MODEL_CHAIN = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
   const lsGet = k => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
   const lsSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} };
   const geminiKey = () => lsGet(KEY_LS).trim();
   async function shrinkImage(file) {
     let bmp;
-    try { bmp = await createImageBitmap(file); } catch { throw { code: "image_rejected" }; }
+    try { bmp = await createImageBitmap(file); } catch { throw { code: "image_rejected", message: (file.type || "unknown type") + ", " + Math.round((file.size || 0) / 1024) + " KB" }; }
     const max = 1600, sc = Math.min(1, max / Math.max(bmp.width, bmp.height));
     const c = document.createElement("canvas");
     c.width = Math.max(1, Math.round(bmp.width * sc)); c.height = Math.max(1, Math.round(bmp.height * sc));
@@ -968,19 +976,38 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
           method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key }, body, signal });
       } catch (e) { throw { code: e && e.name === "AbortError" ? "cancelled" : "offline" }; }
     };
-    const model = lsGet(MODEL_LS).trim() || DEFAULT_MODEL;
-    let r = await call(model);
-    if (r.status === 404 && model !== FALLBACK_MODEL) r = await call(FALLBACK_MODEL);
+    const wait = ms => new Promise(res => setTimeout(res, ms));
+    // Try the chosen model, then fall back through other current Flash models
+    // if one isn't available to this key, is overloaded, or has no free quota.
+    const own = lsGet(MODEL_LS).trim();
+    const chain = own ? [own] : MODEL_CHAIN;
+    let r = null, msg = "", status = 0;
+    for (const model of chain) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        r = await call(model);
+        if (r.ok) break;
+        status = r.status; msg = "";
+        try { msg = ((await r.clone().json()).error || {}).message || ""; } catch {}
+        if ((status === 503 || status === 500) && attempt === 0) { await wait(1500); continue; }
+        break;
+      }
+      if (r.ok) break;
+      const noQuota = status === 429 && /limit:\s*0\b|free_tier/i.test(msg);
+      const tryNext = status === 404 || status >= 500 || noQuota || (status === 400 && /not found|not supported|unsupported|model/i.test(msg) && !/api.?key/i.test(msg));
+      if (!tryNext) break;
+    }
     if (!r.ok) {
-      let msg = ""; try { msg = ((await r.json()).error || {}).message || ""; } catch {}
-      throw { code: r.status === 429 ? "rate_limited" : (r.status === 401 || r.status === 403 || /api.?key/i.test(msg)) ? "bad_key" : "http", message: msg };
+      throw { code: status === 429 ? "rate_limited" : (status === 401 || status === 403 || /api.?key/i.test(msg)) ? "bad_key" : "http", message: (status ? "HTTP " + status + ": " : "") + msg };
     }
     const j = await r.json();
     const cand = (j.candidates || [])[0];
     const text = cand && cand.content ? (cand.content.parts || []).filter(p => !p.thought).map(p => p.text || "").join("") : "";
-    if (!text) throw { code: j.promptFeedback && j.promptFeedback.blockReason ? "refused" : "http" };
-    try { return JSON.parse(text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")); }
-    catch { throw { code: "http" }; }
+    if (!text) throw { code: j.promptFeedback && j.promptFeedback.blockReason ? "refused" : "http", message: "Empty answer" + (cand && cand.finishReason ? " (" + cand.finishReason + ")" : "") };
+    const t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+    try { return JSON.parse(t); } catch {}
+    const m = t.match(/\{[\s\S]*\}/);
+    if (m) { try { return JSON.parse(m[0]); } catch {} }
+    throw { code: "http", message: "Couldn't understand the answer: " + t.slice(0, 120) };
   }
 
   // ---------- scan a receipt or screenshot ----------
@@ -1014,6 +1041,8 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       "Context:",
       "- Today is " + todayISO() + ". The tracker's currency is " + (st.currency || "MVR") + ".",
       "- People in the tracker: " + people().map(p => p.name).join(", ") + ". This was added while viewing: " + who + ".",
+      "- Names on their bank accounts: " + (people().map(p => p.name + ": " + ((p.bank || "").trim() || "not set")).join("; ")) + ".",
+      "- Their bank account numbers end in: " + (people().map(p => p.name + ": " + ((p.acct || "").trim() || "not set")).join("; ")) + ".",
       "- Expense categories: " + EXP_CATS.join(", ") + ".",
       "- Income categories: " + INC_CATS.join(", ") + ".",
       "- Savings goals: " + (goals.length ? goals.join(", ") : "none") + ".",
@@ -1021,8 +1050,11 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       "What to record:",
       "- A shop receipt or bill: ONE expense for the final total actually paid (after discounts, including GST and service charge). Do not list line items separately. Put the shop name and 2-4 key items in the note.",
       "- A bank app screen, transfer confirmation or SMS alert: each money-out is an expense, each money-in is income (salary, transfers received). A transfer clearly into the user's own savings account is type \"save\".",
+      "- Bank transfer receipts (for example Bank of Maldives or MIB, showing From, To, Reference, Transaction date and Amount): From is the sender and To is the recipient. Account numbers decide first: if the To account number ends in one of a person's digits, it is money IN (income) for that person, whatever name is shown next to it (senders often save people under nicknames like \"Quraan sir\"). If the From account ends in a person's digits, it is money OUT (expense) by that person. Otherwise match names loosely (initials, abbreviations like AMTH or MOHD, and dots are fine): From matching a person means money out by them, To matching means money in for them. If nothing matches, set type to null and ask whether the money went out or came in, naming the two sides. In the note, name the OTHER party: \"From AMTH.SHIZLEEN\" for money in, \"Transfer to Ali\" for money out. For money in, ignore the nickname the sender used for the recipient. For money out, pick the category from the recipient when it is clear (a shop is Shopping), otherwise Other. For money in, use the income categories (Side income if unsure).",
+      "- Maldivian bank screens write dates as DD/MM/YYYY (day first). 03/10/2026 is 3 October 2026.",
       "- A list of several transactions (for example a statement): one entry for each.",
-      "- Ignore balances, account or card numbers, and reference numbers. Never copy account or card numbers into the note.",
+      "- Ignore balances and account or card numbers, and never copy account or card numbers into the note. Do copy the transaction reference (like BLAZ847926686391) into ref, if one is shown.",
+      "- person is the name of the person from the list above whose money this is, or null if you can't tell.",
       "",
       "Rules:",
       "- Do not guess. If the amount, the date, or whether money came in or went out is unclear, set that field to null and ask a question about it.",
@@ -1033,7 +1065,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       "- confidence is high when everything is clearly readable, medium if you inferred something, low if the image is hard to read.",
       "",
       "Reply with exactly this JSON shape:",
-      '{"summary": "one short sentence on what you found", "transactions": [{"type": "expense" | "income" | "save" | "withdraw" | null, "amount": number | null, "currency": "MVR", "date": "YYYY-MM-DD" | null, "category": "...", "note": "...", "confidence": "high" | "medium" | "low", "questions": [{"field": "amount" | "date" | "type" | "category" | "note", "question": "...", "options": [{"label": "...", "value": "..."}]}]}]}',
+      '{"summary": "one short sentence on what you found", "transactions": [{"type": "expense" | "income" | "save" | "withdraw" | null, "amount": number | null, "currency": "MVR", "date": "YYYY-MM-DD" | null, "category": "...", "note": "...", "person": "name" | null, "ref": "..." | null, "confidence": "high" | "medium" | "low", "questions": [{"field": "amount" | "date" | "type" | "category" | "note", "question": "...", "options": [{"label": "...", "value": "..."}]}]}]}',
       "If there are no transactions in the image, return an empty transactions list and say why in summary."
     ].join("\n");
   }
@@ -1066,15 +1098,17 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
         return {
           include: true, type: type || "expense", typeKnown: !!type, amount, date, currency: cur,
           category: String(t.category || "") || (type === "income" ? "Salary" : "Other"), note: String(t.note || "").slice(0, 80),
-          goalId: "", person: dv, confidence: String(t.confidence || ""), questions: qs
+          goalId: "", person: personFrom(t.person) || dv, ref: typeof t.ref === "string" ? t.ref.trim().slice(0, 40) : "", confidence: String(t.confidence || ""), questions: qs
         };
       });
+      scanItems.forEach(it => { if (it.ref && state.entries.some(e => e.ref === it.ref)) it.include = false; });
       $("scanTitle").textContent = scanItems.length ? "Check what I found" : "Nothing to add";
       setScanStatus(esc((res && res.summary) || (scanItems.length ? "" : "I couldn't find a transaction in that image. Try a clearer photo, or add it by hand.")), false);
       renderScan();
     } catch (e) {
       if (scanAbort !== ctl) return;
       scanAbort = null;
+      if (e && !e.code && e.message) e = { code: "http", message: e.message };
       const code = e && e.code;
       if (code === "cancelled") { $("scanPanel").hidden = true; return; }
       $("scanTitle").textContent = "Couldn't read that";
@@ -1085,13 +1119,20 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
         rate_limited: "Gemini's free limit was reached for now. Wait a minute and try again, or add it by hand.",
         image_rejected: "That image couldn't be opened. Try a JPG or PNG photo or screenshot.",
         refused: "I couldn't read that image. Try a different photo, or add the entry by hand."
-      }[code] || "Scanning didn't work this time. Check your connection and try again.";
-      setScanStatus(esc(msg), false);
+      }[code] || "Scanning didn't work this time. Try again, or add the entry by hand.";
+      setScanStatus(esc(msg) + (e && e.message ? '<br><small class="muted">Details for troubleshooting: ' + esc(String(e.message).slice(0, 240)) + '</small>' : ""), false);
       $("scanFoot").hidden = false; $("scanAdd").hidden = true;
     }
   }
 
+  function personFrom(name) {
+    if (!name || typeof name !== "string") return null;
+    const n = name.trim().toLowerCase();
+    const hit = people().find(p => p.name.trim().toLowerCase() === n) || people().find(p => (p.bank || "").toLowerCase().split(",").map(x => x.trim()).filter(Boolean).includes(n));
+    return hit ? hit.id : null;
+  }
   function dupOf(it) {
+    if (it.ref) { const same = state.entries.find(e => e.ref && e.ref === it.ref); if (same) return same; }
     if (!it.amount || !it.date) return null;
     return state.entries.find(e => e.date === it.date && Math.abs(+e.amount - it.amount) < 0.005 && e.type === it.type && e.person === it.person) || null;
   }
@@ -1127,7 +1168,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
             : `<div class="field"><label for="sc${i}">Category</label><input id="sc${i}" list="scanCats${i}" data-i="${i}" data-k="category" value="${esc(it.category)}"><datalist id="scanCats${i}">${cats.map(c => `<option value="${esc(c)}">`).join("")}</datalist></div>`}
         </div>
         <div class="field"><label for="sn${i}">Note</label><input id="sn${i}" maxlength="80" data-i="${i}" data-k="note" value="${esc(it.note)}"></div>
-        ${dup ? `<div class="dup">You already have ${esc(money(+dup.amount))} on this date${dup.note ? " (" + esc(dup.note) + ")" : ""}. Untick this if it's the same one.</div>` : ""}
+        ${dup ? (it.ref && dup.ref === it.ref ? `<div class="dup">This transfer (${esc(it.ref)}) is already in Pocket Ledger, so it's unticked.</div>` : `<div class="dup">You already have ${esc(money(+dup.amount))} on this date${dup.note ? " (" + esc(dup.note) + ")" : ""}. Untick this if it's the same one.</div>`) : ""}
       </div>`;
     }).join("");
     const n = scanItems.filter(x => x.include).length;
@@ -1175,6 +1216,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     let added = 0;
     for (const it of chosen) {
       const e = { type: it.type, amount: it.amount, date: it.date, note: (it.note || "").trim(), created: Date.now() + added, person: it.person, source: "scan" };
+      if (it.ref) e.ref = it.ref;
       if (it.type === "save" || it.type === "withdraw") { e.goalId = it.goalId || ""; e.category = "Savings"; }
       else e.category = (it.category || "").trim() || (it.type === "income" ? "Salary" : "Other");
       if (!(await run(backend.add(e)))) break;
@@ -1193,6 +1235,13 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   function inviteUrl() { return fbctx ? location.origin + location.pathname + "?join=" + fbctx.hid : ""; }
   $("settingsBtn").addEventListener("click", () => {
     $("setKey").value = geminiKey(); $("setModel").value = lsGet(MODEL_LS);
+    const pp = people();
+    $("setBank1").value = (pp[0] || {}).bank || ""; $("setBank2").value = (pp[1] || {}).bank || "";
+    $("setAcct1").value = (pp[0] || {}).acct || ""; $("setAcct2").value = (pp[1] || {}).acct || "";
+    $("setAcct1L").textContent = ((pp[0] || {}).name || "First person") + "'s account numbers (last 4 digits)";
+    $("setAcct2L").textContent = ((pp[1] || {}).name || "Second person") + "'s account numbers (last 4 digits)";
+    $("setBank1L").textContent = "Name on " + ((pp[0] || {}).name || "first person") + "'s bank account";
+    $("setBank2L").textContent = "Name on " + ((pp[1] || {}).name || "second person") + "'s bank account";
     $("inviteLink").value = inviteUrl();
     const n = household && household.members ? household.members.length : 1;
     $("hhInfo").textContent = n >= 2 ? "You're both connected. Everyone in the household sees the same entries." : "Only you are connected so far. Send this link to your partner. They open it, create an account and tap Join household.";
