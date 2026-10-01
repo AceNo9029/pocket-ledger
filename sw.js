@@ -1,5 +1,5 @@
 // Pocket Ledger service worker: makes the app open offline and installable.
-const VERSION = "pl-v10";
+const VERSION = "pl-v11";
 const SHELL = ["./", "./index.html", "./app.js", "./config.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/favicon-32.png", "./icons/apple-touch-icon.png"];
 
@@ -45,4 +45,24 @@ self.addEventListener("fetch", e => {
       return res;
     })));
   }
+});
+
+// Notifications sent by the Pocket Ledger server (Firebase Cloud Messaging).
+self.addEventListener("push", e => {
+  let j = {};
+  try { j = e.data ? e.data.json() : {}; } catch (err) { j = { notification: { title: "Pocket Ledger", body: e.data ? e.data.text() : "" } }; }
+  const n = j.notification || {}, d = j.data || {};
+  const title = n.title || d.title || "Pocket Ledger";
+  e.waitUntil(self.registration.showNotification(title, {
+    body: n.body || d.body || "", icon: "./icons/icon-192.png", badge: "./icons/icon-192.png",
+    tag: d.kind || n.tag || "pocket-ledger", data: { url: d.url || (j.fcmOptions && j.fcmOptions.link) || "./" }
+  }));
+});
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "./";
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+    for (const c of list) { if ("focus" in c) return c.focus(); }
+    return self.clients.openWindow(url);
+  }));
 });

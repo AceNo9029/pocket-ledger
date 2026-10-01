@@ -261,6 +261,7 @@ body .wrap { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .ledger li.more { list-style: none; padding-top: 10px; display: flex; justify-content: center; }
 #fCatSel, #fFor, #brRemind, #brType, #brCat, #brWho, #lnDir, #lnWho { width: 100%; }
 #fCat:not([hidden]) { margin-top: 6px; }
+.srv { display: grid; gap: 8px; background: var(--sunk); border-radius: 10px; padding: 10px 12px; }
 * { box-sizing: border-box; }
 html { color-scheme: light; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
@@ -518,9 +519,21 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     <p class="hint" style="margin:0">"Savings they already had" is each person's starting balance before you began logging here. It counts toward total savings but not toward any goal.</p>
     <div class="setsec">
       <h3>Gemini (scanning and chat)</h3>
-      <div class="field"><label for="setHKey">Gemini key for the household</label><input id="setHKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key from Google AI Studio"></div>
+      <div class="srv"><p class="hint" style="margin:0" id="srvState"></p><div class="row-btns"><button class="ghost" type="button" id="srvOn">Use the secure server</button><button class="ghost" type="button" id="srvOff" hidden>Stop using the server</button></div></div>
+      <div class="field" id="hkeyField"><label for="setHKey">Gemini key for the household</label><input id="setHKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key from Google AI Studio"></div>
       <p class="hint" style="margin:0">Saved with your household's data, so everyone in the household can scan and chat without their own key. Everyone in the household can see it. Get one at aistudio.google.com, then Get API key.</p>
       <details class="box"><summary>Advanced</summary><div><div class="field"><label for="setKey">Use a different key on this device (optional)</label><input id="setKey" type="password" autocomplete="off" spellcheck="false" placeholder="Leave empty to use the household key"></div><div class="field"><label for="setModel">Gemini model</label><input id="setModel" spellcheck="false" placeholder="Automatic (gemini-3.8-flash)"></div></div></details>
+    </div>
+    <div class="setsec">
+      <h3>Notifications</h3>
+      <p class="hint" style="margin:0" id="ntState"></p>
+      <div class="row-btns"><button class="ghost" type="button" id="ntOn">Turn on for this device</button><button class="ghost" type="button" id="ntTest" hidden>Send a test</button><button class="icon-btn" type="button" id="ntOff" hidden>Turn off on this device</button></div>
+      <div class="tile-opts">
+        <label class="check"><input type="checkbox" id="ntBills" checked><span>Bills &amp; reminders<small>When a bill turns amber, then red</small></span></label>
+        <label class="check"><input type="checkbox" id="ntBudgets" checked><span>Budgets<small>At 80% and when you go over</small></span></label>
+        <label class="check"><input type="checkbox" id="ntLoans" checked><span>Loans<small>3 days before the due date, and when overdue</small></span></label>
+      </div>
+      <p class="hint" style="margin:0">Your choices apply to all your devices. Alerts are checked every morning at 8:30.</p>
     </div>
     <div><button class="primary" id="saveSettings">Save settings</button></div>
     <div class="setsec">
@@ -1306,6 +1319,23 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   // A key set on this device wins; otherwise the household's shared key.
   const householdKey = () => String((household && household.gemini && household.gemini.key) || "").trim();
   const geminiKey = () => lsGet(KEY_LS).trim() || householdKey();
+  const serverAI = () => !!(household && household.ai && household.ai.server);
+  const aiReady = () => !!(geminiKey() || serverAI());
+  let callableP = null;
+  async function serverGemini(payload, signal) {
+    if (!callableP) callableP = import("https://www.gstatic.com/firebasejs/" + fbctx.sdk + "/firebase-functions.js")
+      .then(m => m.httpsCallable(m.getFunctions(fbctx.app, "asia-south1"), "gemini", { timeout: 120000 }));
+    let fn; try { fn = await callableP; } catch { callableP = null; throw { code: "offline" }; }
+    const aborted = new Promise((_, rej) => { if (signal) signal.addEventListener("abort", () => rej({ code: "cancelled" }), { once: true }); });
+    try {
+      const r = await Promise.race([fn(payload), aborted]);
+      return (r && r.data && r.data.text) || "";
+    } catch (e) {
+      if (e && e.code === "cancelled") throw e;
+      const c = String((e && e.code) || "").replace("functions/", "");
+      throw { code: c === "resource-exhausted" ? "rate_limited" : c === "failed-precondition" ? "bad_key" : c === "unauthenticated" || c === "permission-denied" ? "http" : "http", message: (e && e.message) || c };
+    }
+  }
   async function shrinkImage(file) {
     let bmp;
     try { bmp = await createImageBitmap(file); } catch { throw { code: "image_rejected", message: (file.type || "unknown type") + ", " + Math.round((file.size || 0) / 1024) + " KB" }; }
@@ -1319,8 +1349,8 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   async function geminiText(prompt, files, opts) {
     opts = opts || {};
     const signal = opts.signal;
-    const key = geminiKey();
-    if (!key) throw { code: "no_key" };
+    const key = geminiKey(), server = serverAI();
+    if (!key && !server) throw { code: "no_key" };
     if (!navigator.onLine) throw { code: "offline" };
     const parts = [{ text: prompt }];
     for (const f of files || []) parts.push({ inline_data: { mime_type: "image/jpeg", data: await shrinkImage(f) } });
@@ -1328,6 +1358,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     if (signal && signal.aborted) throw { code: "cancelled" };
     const gen = { temperature: opts.temperature ?? 0.1 };
     if (opts.json) gen.response_mime_type = "application/json";
+    if (server) return serverGemini({ contents: [{ role: "user", parts }], generationConfig: gen, model: lsGet(MODEL_LS).trim() || null }, signal);
     const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: gen });
     const call = async model => {
       try {
@@ -1381,7 +1412,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
   function openScanPicker() {
-    if (!geminiKey()) { openSettings(); setTimeout(() => $("setKey").focus(), 50); toast("Add your Gemini key first. It's free from Google AI Studio."); return; }
+    if (!aiReady()) { openSettings(); setTimeout(() => $("setKey").focus(), 50); toast("Add your Gemini key first. It's free from Google AI Studio."); return; }
     $("scanFile").click();
   }
   $("scanBtn").addEventListener("click", openScanPicker);
@@ -1879,7 +1910,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       const c = await caches.open("pl-share"); const keys = await c.keys(); const files = [];
       for (const k of keys) { const r = await c.match(k); const b = await r.blob(); files.push(new File([b], decodeURIComponent(k.url.split("/").pop()) || "shared.jpg", { type: b.type || "image/jpeg" })); await c.delete(k); }
       if (!files.length) return;
-      if (!geminiKey()) { toast("Add the Gemini key in Settings to read shared screenshots."); return; }
+      if (!aiReady()) { toast("Add the Gemini key in Settings to read shared screenshots."); return; }
       startScan(files.slice(0, 4));
     } catch { toast("Couldn't open the shared image."); }
   }
@@ -2715,6 +2746,93 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
 
   render = (orig => function () { orig(); try { renderTiles(); } catch (err) { console.error(err); } })(render);
 
+  // ======================================================================
+  // Server features (pay-as-you-go): push notifications + secure Gemini.
+  // ======================================================================
+  const VAPID = "BKlq7-ZZbLXO79EqXjx4uhSmrCefE6Aewl4Xy_yiwQFQ3-f1fUCOvsiUZNPU51i5WRtwpvwDiIWrTWwmISsRL48";
+  const sdkUrl = name => "https://www.gstatic.com/firebasejs/" + fbctx.sdk + "/firebase-" + name + ".js";
+  let msgMod = null, fnMod = null;
+  const loadMsg = async () => msgMod || (msgMod = await import(sdkUrl("messaging")));
+  const loadFns = async () => fnMod || (fnMod = await import(sdkUrl("functions")));
+  const callFn = async (name, data) => { const m = await loadFns(); return (await m.httpsCallable(m.getFunctions(fbctx.app, "asia-south1"), name, { timeout: 120000 })(data || {})).data; };
+  const userRef = () => fbctx.F.doc(fbctx.db, "users", fbctx.user.uid);
+
+  // ---------- notifications ----------
+  async function registerPush(ask) {
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) throw { msg: "This browser can't show notifications." };
+    const m = await loadMsg();
+    if (!(await m.isSupported())) throw { msg: "Notifications aren't supported here. On an iPhone, add Pocket Ledger to your home screen first, then turn them on from there." };
+    const perm = ask ? await Notification.requestPermission() : Notification.permission;
+    if (perm !== "granted") throw { msg: perm === "denied" ? "Notifications are blocked for Pocket Ledger. Allow them in your phone's settings for this app, then try again." : "Notifications weren't allowed." };
+    const reg = await navigator.serviceWorker.ready;
+    const token = await m.getToken(m.getMessaging(fbctx.app), { vapidKey: VAPID, serviceWorkerRegistration: reg });
+    if (!token) throw { msg: "Couldn't register this device." };
+    const old = lsGet("pl-push-token");
+    if (old !== token) {
+      const upd = { tokens: fbctx.F.arrayUnion(token) };
+      await fbctx.F.setDoc(userRef(), upd, { merge: true });
+      if (old) { try { await fbctx.F.updateDoc(userRef(), { tokens: fbctx.F.arrayRemove(old) }); } catch {} }
+      lsSet("pl-push-token", token);
+    }
+    m.onMessage(m.getMessaging(fbctx.app), p => { const n = p.notification || {}; toast((n.title ? n.title + ": " : "") + (n.body || "")); });
+    return token;
+  }
+  async function renderNotify() {
+    const on = "Notification" in window && Notification.permission === "granted" && !!lsGet("pl-push-token");
+    $("ntState").textContent = on ? "On for this device. You'll get the ones ticked below, even when the app is closed." : ("Notification" in window && Notification.permission === "denied") ? "Blocked for this app in your phone's settings." : "Off on this device.";
+    $("ntOn").hidden = on; $("ntTest").hidden = !on; $("ntOff").hidden = !on;
+    try {
+      const s = await fbctx.F.getDoc(userRef()); const p = Object.assign({ bills: true, budgets: true, loans: true }, (s.exists() && s.data().notify) || {});
+      $("ntBills").checked = p.bills; $("ntBudgets").checked = p.budgets; $("ntLoans").checked = p.loans;
+    } catch {}
+  }
+  $("ntOn").addEventListener("click", async () => {
+    $("ntOn").disabled = true;
+    try { await registerPush(true); toast("Notifications are on"); }
+    catch (e) { toast((e && e.msg) || "Couldn't turn notifications on. Try again."); }
+    $("ntOn").disabled = false; renderNotify();
+  });
+  $("ntOff").addEventListener("click", async () => {
+    const t = lsGet("pl-push-token");
+    if (t) { try { await fbctx.F.updateDoc(userRef(), { tokens: fbctx.F.arrayRemove(t) }); } catch {} }
+    lsSet("pl-push-token", ""); toast("Notifications are off on this device"); renderNotify();
+  });
+  $("ntTest").addEventListener("click", async () => {
+    $("ntTest").disabled = true;
+    try { await callFn("testPush"); toast("Test sent. It should arrive in a few seconds."); }
+    catch (e) { toast(/not-found|internal|unavailable/.test(String(e && e.code)) ? "The notification server isn't set up yet." : (e && e.message) || "Couldn't send a test."); }
+    $("ntTest").disabled = false;
+  });
+  ["ntBills", "ntBudgets", "ntLoans"].forEach(id => $(id).addEventListener("change", () => {
+    fbctx.F.setDoc(userRef(), { notify: { bills: $("ntBills").checked, budgets: $("ntBudgets").checked, loans: $("ntLoans").checked } }, { merge: true }).catch(() => toast("Couldn't save that. Check your connection."));
+  }));
+
+  // ---------- secure Gemini on the server ----------
+  function renderServerAI() {
+    const on = serverAI();
+    $("srvState").textContent = on ? "Gemini runs on your secure server for everyone in the household. No key is stored in the app." : "Optional: run Gemini on your secure server, so no key is stored in the app or on phones.";
+    $("srvOn").hidden = on; $("srvOff").hidden = !on;
+    $("hkeyField").hidden = on;
+  }
+  $("srvOn").addEventListener("click", async () => {
+    $("srvOn").disabled = true;
+    try {
+      await callFn("gemini", { ping: true });
+      await fbctx.F.updateDoc(fbctx.F.doc(fbctx.db, "households", fbctx.hid), { ai: { server: true }, gemini: { key: "" } });
+      household.ai = { server: true }; household.gemini = { key: "" }; lsSet(KEY_LS, "");
+      toast("Gemini now runs on your server"); renderServerAI();
+    } catch (e) { toast(/not-found|internal|unavailable/.test(String(e && e.code)) ? "The Gemini server isn't set up yet. Run the setup steps first." : (e && e.message) || "Couldn't reach the server."); }
+    $("srvOn").disabled = false;
+  });
+  $("srvOff").addEventListener("click", async () => {
+    try { await fbctx.F.updateDoc(fbctx.F.doc(fbctx.db, "households", fbctx.hid), { ai: { server: false } }); household.ai = { server: false }; renderServerAI(); toast("Stopped using the server. Add a key below to keep using Gemini."); }
+    catch { toast("Couldn't change that. Check your connection."); }
+  });
+
+  $("settingsBtn").addEventListener("click", () => { if (fbctx) { renderNotify(); renderServerAI(); } });
+  // keep this device's notification token fresh (they change from time to time)
+  function refreshPush() { if (fbctx && "Notification" in window && Notification.permission === "granted" && lsGet("pl-push-token")) registerPush(false).catch(() => {}); }
+
   // ---------- settings: this device, household, account ----------
   function openSettings() { if ($("settingsPanel").hidden) $("settingsBtn").click(); $("settingsPanel").scrollIntoView({ behavior: "smooth", block: "start" }); }
   function inviteUrl() { return fbctx ? location.origin + location.pathname + "?join=" + fbctx.hid : ""; }
@@ -2764,7 +2882,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       backend = firebaseBackend(fb);
       render();
       $("lnDate").value = todayISO();
-      (function waitReady() { if (state.ready) { takeSharedFiles(); handleShortcut(); } else setTimeout(waitReady, 300); })();
+      (function waitReady() { if (state.ready) { takeSharedFiles(); handleShortcut(); refreshPush(); } else setTimeout(waitReady, 300); })();
     }
   };
 

@@ -140,7 +140,7 @@ async function main() {
     if (started) return; started = true;
     $("gate").hidden = true;
     window.PL.boot({
-      F, db, hid, user,
+      F, db, hid, user, app, sdk: SDK,
       signOut: async () => { await A.signOut(auth); location.reload(); }
     });
   }
