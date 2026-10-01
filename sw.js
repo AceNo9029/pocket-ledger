@@ -1,5 +1,5 @@
 // Pocket Ledger service worker: makes the app open offline and installable.
-const VERSION = "pl-v6";
+const VERSION = "pl-v7";
 const SHELL = ["./", "./index.html", "./app.js", "./config.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/favicon-32.png", "./icons/apple-touch-icon.png"];
 
@@ -11,6 +11,21 @@ self.addEventListener("activate", e => {
 });
 self.addEventListener("fetch", e => {
   const req = e.request;
+  // Screenshots shared to Pocket Ledger from other apps (Android share sheet).
+  if (req.method === "POST" && new URL(req.url).pathname.endsWith("/share-target")) {
+    e.respondWith((async () => {
+      try {
+        const form = await req.formData();
+        const files = form.getAll("images").filter(f => f && f.size);
+        const c = await caches.open("pl-share");
+        for (const k of await c.keys()) await c.delete(k);
+        let i = 0;
+        for (const f of files.slice(0, 4)) await c.put(new Request("./shared/" + (i++) + "-" + encodeURIComponent(f.name || "image.jpg")), new Response(f, { headers: { "Content-Type": f.type || "image/jpeg" } }));
+      } catch (err) {}
+      return Response.redirect("./?shared=1", 303);
+    })());
+    return;
+  }
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   // Live services (sign-in, database sync, scanning) always go to the network.
