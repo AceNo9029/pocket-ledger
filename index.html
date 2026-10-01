@@ -204,6 +204,63 @@ body .wrap { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .quick-card p { margin: 0; }
 .quick-card .primary { padding: 14px; font-size: 1rem; }
 .quick-card .linkish { justify-self: center; }
+/* text size + button labels */
+:root[data-fs="s"] body { zoom: .92; }
+:root[data-fs="l"] body { zoom: 1.12; }
+:root[data-fs="xl"] body { zoom: 1.25; }
+.modeseg.four { grid-template-columns: repeat(4, 1fr); }
+.tool .tl { display: none; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+:root[data-tools="text"] .tool svg { display: none; }
+:root[data-tools="text"] .tool .tl, :root[data-tools="both"] .tool .tl { display: inline; }
+:root[data-tools="text"] .tool, :root[data-tools="both"] .tool { width: auto; padding: 0 12px; display: inline-flex; gap: 6px; align-items: center; }
+:root[data-tools="text"] .tool::after, :root[data-tools="both"] .tool::after { display: none; }
+/* dashboard */
+.summary { border: 0; box-shadow: 0 2px 4px rgba(0,0,0,.05), 0 12px 32px rgba(0,0,0,.08); gap: 16px; }
+.dash-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: -6px; }
+.summary .hero { background: var(--accent); color: var(--accent-ink); border-radius: 14px; padding: 18px 18px 16px; }
+.summary .hero .label, .summary .hero .sub { color: var(--accent-ink); opacity: .85; }
+.summary .hero .big.neg { color: var(--accent-ink); text-decoration: underline wavy; text-underline-offset: 6px; }
+.summary .hero .ghost { background: transparent; color: var(--accent-ink); border-color: currentColor; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tile { border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.tile .v { font-family: var(--f-display); font-size: 1.15rem; font-weight: 600; }
+.tile .h { font-size: .8rem; color: var(--ink-3); overflow-wrap: anywhere; }
+.tile.t-ok { border-left-color: var(--c-left); }
+.tile.t-amber { border-left-color: #D99A1E; }
+.tile.t-red { border-left-color: var(--neg); }
+.tile.t-red .v { color: var(--neg); }
+.tile-cfg { display: grid; gap: 8px; background: var(--sunk); border-radius: 10px; padding: 10px 12px; }
+.tile-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 12px; }
+/* bills bar */
+.bills-bar { display: grid; gap: 8px; }
+.bill { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; border-radius: 12px; padding: 10px 12px; border-left: 6px solid; background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.bill.green { border-left-color: var(--c-left); }
+.bill.amber { border-left-color: #D99A1E; background: color-mix(in srgb, #D99A1E 10%, var(--surface)); }
+.bill.red { border-left-color: var(--neg); background: color-mix(in srgb, var(--neg) 12%, var(--surface)); }
+.bill-main { display: grid; min-width: 0; }
+.bill-main span { font-size: .84rem; color: var(--ink-2); }
+.bill.red .bill-main span { color: var(--neg); font-weight: 600; }
+.bill-amt { width: 110px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 7px 9px; font: inherit; }
+.bill-more { font-size: .8rem; color: var(--ink-3); padding-left: 4px; }
+.rec { align-items: flex-start; }
+.rec-main { flex: 1; min-width: 0; }
+.rec-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; margin-top: 5px; background: var(--line); }
+.rec-dot.green { background: var(--c-left); } .rec-dot.amber { background: #D99A1E; } .rec-dot.red { background: var(--neg); }
+.rec-dot.done { background: transparent; border: 2px solid var(--c-left); } .rec-dot.off { background: var(--line); }
+/* loans */
+.loan-meter { height: 8px; }
+.loan-meter div { background: var(--c-left); }
+.loan.paid { opacity: .75; }
+.loan-hist summary, .loan-done summary { cursor: pointer; font-size: .82rem; color: var(--accent); font-weight: 600; }
+.loan-hist ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; font-size: .84rem; }
+.loan-hist li { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--line); padding-bottom: 3px; }
+.loan-done .loans { margin-top: 8px; }
+.loan-pay { flex-wrap: wrap; }
+.loan-pay input[type=date] { flex: 1 1 130px; }
+/* entries */
+.ledger li.more { list-style: none; padding-top: 10px; display: flex; justify-content: center; }
+#fCatSel, #fFor, #brRemind, #brType, #brCat, #brWho, #lnDir, #lnWho { width: 100%; }
+#fCat:not([hidden]) { margin-top: 6px; }
 * { box-sizing: border-box; }
 html { color-scheme: light; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
@@ -418,6 +475,10 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       <h3>Appearance on this device</h3>
       <div class="modeseg" role="group" aria-label="Light or dark"><button type="button" data-mode="auto">Automatic</button><button type="button" data-mode="light">Light</button><button type="button" data-mode="dark">Dark</button></div>
       <div class="themes" role="group" aria-label="Theme"><button class="theme-sw" type="button" data-preset="lagoon"><span class="chip"><i style="background:#F3F6F5"></i><i style="background:#0B5F57"></i><i style="background:#0F1716"></i></span>Lagoon</button><button class="theme-sw" type="button" data-preset="atoll"><span class="chip"><i style="background:#F1F5FA"></i><i style="background:#1D5FAE"></i><i style="background:#0C1320"></i></span>Atoll</button><button class="theme-sw" type="button" data-preset="sand"><span class="chip"><i style="background:#F5F1E8"></i><i style="background:#4E6A2C"></i><i style="background:#16140F"></i></span>Sandbank</button><button class="theme-sw" type="button" data-preset="monsoon"><span class="chip"><i style="background:#EDEFF3"></i><i style="background:#3B4A6E"></i><i style="background:#111419"></i></span>Monsoon</button><button class="theme-sw" type="button" data-preset="sunset"><span class="chip"><i style="background:#F7F1F4"></i><i style="background:#7B3A6A"></i><i style="background:#181116"></i></span>Sunset</button></div>
+      <div class="field"><span class="label" style="text-transform:none;letter-spacing:0;font-size:.85rem">Text size</span>
+        <div class="modeseg four" id="fsSeg" role="group" aria-label="Text size"><button type="button" data-fs="s">Small</button><button type="button" data-fs="m">Normal</button><button type="button" data-fs="l">Large</button><button type="button" data-fs="xl">Extra large</button></div></div>
+      <div class="field"><span class="label" style="text-transform:none;letter-spacing:0;font-size:.85rem">Top buttons show</span>
+        <div class="modeseg" id="toolSeg" role="group" aria-label="Top buttons show"><button type="button" data-tools="icons">Icons</button><button type="button" data-tools="text">Words</button><button type="button" data-tools="both">Both</button></div></div>
       <label class="check"><input type="checkbox" id="setAmoled"><span>Pure black in dark mode<small>Deeper blacks that save battery on AMOLED screens like the S24 Ultra.</small></span></label>
     </div>
     <div class="setsec" style="border-top:0;padding-top:0">
@@ -477,9 +538,11 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     </div>
   </section>
 
-  <div class="banner info" id="dueBar" hidden></div>
+  <div class="bills-bar" id="dueBar" hidden></div>
   <div class="banner info" id="owesBar" hidden></div>
   <section class="summary" aria-label="This month">
+    <div class="dash-head"><span class="label">Dashboard</span><button class="icon-btn" type="button" id="tileBtn">Customize</button></div>
+    <div class="tile-cfg" id="tileCfg" hidden></div>
     <div class="hero">
       <div>
         <div class="label" id="heroLabel">Left to spend this month</div>
@@ -488,16 +551,17 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       </div>
       <button class="ghost" id="copyIncome" hidden>Copy income from last month</button>
     </div>
-    <div>
+    <div data-tile="split">
       <div class="split" id="split" role="img" aria-label="How this month's income is split"></div>
       <div class="legend" id="legend" style="margin-top:10px"></div>
     </div>
     <div class="stats">
-      <div><div class="label">Income</div><div class="v num" id="sIncome">—</div><div class="h" id="sIncomeH">&nbsp;</div></div>
-      <div><div class="label">Spent</div><div class="v num" id="sSpent">—</div><div class="h" id="sSpentH">&nbsp;</div></div>
-      <div><div class="label">Saved this month</div><div class="v num" id="sSaved">—</div><div class="h" id="sSavedH">&nbsp;</div></div>
-      <div><div class="label">Total savings</div><div class="v num" id="sTotal">—</div><div class="h" id="sTotalH">&nbsp;</div></div>
+      <div data-tile="income"><div class="label">Income</div><div class="v num" id="sIncome">—</div><div class="h" id="sIncomeH">&nbsp;</div></div>
+      <div data-tile="spent"><div class="label">Spent</div><div class="v num" id="sSpent">—</div><div class="h" id="sSpentH">&nbsp;</div></div>
+      <div data-tile="saved"><div class="label">Saved this month</div><div class="v num" id="sSaved">—</div><div class="h" id="sSavedH">&nbsp;</div></div>
+      <div data-tile="total"><div class="label">Total savings</div><div class="v num" id="sTotal">—</div><div class="h" id="sTotalH">&nbsp;</div></div>
     </div>
+    <div class="tiles" id="tiles"></div>
   </section>
 
   <section class="panel scan" id="scanPanel" hidden aria-live="polite">
@@ -552,16 +616,18 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
           <div class="field"><label for="fAmount" id="fAmountLabel">Amount</label>
             <input id="fAmount" class="amount-in num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" required></div>
           <div class="row2">
-            <div class="field" id="catField"><label for="fCat">Category</label>
-              <input id="fCat" list="catList" autocomplete="off" placeholder="Pick or type"><datalist id="catList"></datalist><small class="cat-hint" id="catHint" hidden></small></div>
-            <div class="field" id="goalField" hidden><label for="fGoal">Goal</label>
+            <div class="field" id="catField"><label for="fCatSel">Category</label>
+              <select id="fCatSel"></select><input id="fCat" autocomplete="off" placeholder="Type a category" hidden aria-label="Your own category"><datalist id="catList"></datalist><small class="cat-hint" id="catHint" hidden></small></div>
+            <div class="field" id="goalField" hidden><label for="fGoal" id="goalLabel">Put it into</label>
               <select id="fGoal"></select></div>
             <div class="field"><label for="fDate">Date</label><input id="fDate" type="date" required></div>
           </div>
-          <div class="field"><label for="fNote">Note <span class="muted">(optional)</span></label>
+          <div class="field" id="purposeRow" hidden><label for="fPurpose">What are you saving for?</label><input id="fPurpose" maxlength="40" placeholder="e.g. Wedding gift, Eid"></div>
+          <div class="field" id="forRow" hidden><label for="fFor">Counts for</label><select id="fFor"><option value="this">This month</option><option value="next">Next month</option></select></div>
+          <div class="field"><label for="fNote" id="noteLabel">Note <span class="muted">(optional)</span></label>
             <input id="fNote" maxlength="80" placeholder="e.g. Groceries at Agora"></div>
           <label class="check" id="splitRow"><input type="checkbox" id="fSplit"><span id="splitLabel">Split half with your partner</span></label>
-          <label class="check" id="repeatRow"><input type="checkbox" id="fRepeat"><span>Repeat every month<small>Added automatically on the same day each month.</small></span></label>
+          <label class="check" id="repeatRow"><input type="checkbox" id="fRepeat"><span>Remind me every month<small>Shows up as a bill when it's due. Nothing is added until you mark it paid.</small></span></label>
           <div class="err" id="formErr" hidden></div>
           <div class="formfoot"><button class="primary" type="submit" id="submitBtn">Add expense</button></div>
           <div class="hint" id="typeHint">Money you spent this month.</div>
@@ -598,11 +664,12 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
               <div class="field"><label for="lnDir">Type</label><select id="lnDir"><option value="lent">I lent money</option><option value="borrowed">I borrowed money</option></select></div>
               <div class="field"><label for="lnAmt">Amount</label><input id="lnAmt" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
             </div>
-            <div class="field"><label for="lnName">Who with?</label><input id="lnName" maxlength="40" placeholder="e.g. Ali"></div>
+            <div class="field"><label for="lnName" id="lnNameL">Who did you lend to?</label><input id="lnName" maxlength="40" placeholder="e.g. Ali"></div>
             <div class="row2">
               <div class="field"><label for="lnDate">Date</label><input id="lnDate" type="date"></div>
               <div class="field"><label for="lnDue">Due back <span class="muted">(optional)</span></label><input id="lnDue" type="date"></div>
             </div>
+            <label class="check"><input type="checkbox" id="lnInMonth"><span>Count it in this month's money<small>Off by default: loans are tracked separately from "left to spend".</small></span></label>
             <div class="field" id="lnWhoF" hidden><label for="lnWho">Whose money?</label><select id="lnWho"></select></div>
             <div class="err" id="loanErr" hidden></div>
             <div class="formfoot"><button class="primary" type="button" id="saveLoan">Save loan</button></div>
@@ -611,8 +678,26 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       </section>
 
       <section class="panel">
-        <div class="panel-head"><h2>Repeating every month</h2></div>
+        <div class="panel-head"><h2>Bills &amp; reminders</h2></div>
         <div class="recs" id="recList"></div>
+        <details class="box" id="billBox">
+          <summary>New bill or reminder</summary>
+          <div>
+            <div class="field"><label for="brName">Name</label><input id="brName" maxlength="40" placeholder="e.g. Electricity, Rent, Phone bill"></div>
+            <div class="row2">
+              <div class="field"><label for="brAmt">Usual amount</label><input id="brAmt" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+              <div class="field"><label for="brDay">Due on day</label><input id="brDay" type="number" inputmode="numeric" min="1" max="31" placeholder="e.g. 10"></div>
+            </div>
+            <div class="row2">
+              <div class="field"><label for="brRemind">Remind me</label><select id="brRemind"><option value="3">3 days before</option><option value="5">5 days before</option><option value="7" selected>7 days before</option><option value="10">10 days before</option><option value="14">14 days before</option></select></div>
+              <div class="field"><label for="brType">Type</label><select id="brType"><option value="expense">Money out (bill)</option><option value="income">Money in</option></select></div>
+            </div>
+            <div class="field"><label for="brCat">Category</label><select id="brCat"></select></div>
+            <div class="field" id="brWhoF" hidden><label for="brWho">Whose?</label><select id="brWho"></select></div>
+            <div class="err" id="brErr" hidden></div>
+            <div class="formfoot"><button class="primary" type="button" id="saveBill">Save reminder</button></div>
+          </div>
+        </details>
       </section>
     </aside>
   </div>
@@ -823,9 +908,9 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   }
 
   // ---------- derived numbers ----------
-  function inMonth(k) { return viewEntries().filter(e => (e.date || "").slice(0, 7) === k); }
+  function inMonth(k) { return viewEntries().filter(e => effMonth(e) === k); }
   function monthTotals(k) {
-    const es = inMonth(k);
+    const es = inMonth(k).filter(countsMoney);
     const t = { income: 0, spent: 0, save: 0, withdraw: 0 };
     es.forEach(e => { const a = +e.amount || 0; if (e.type === "income") t.income += a; else if (e.type === "expense") t.spent += a; else if (e.type === "save") t.save += a; else if (e.type === "withdraw") t.withdraw += a; });
     t.netSaved = t.save - t.withdraw;
@@ -929,7 +1014,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       if (e.type === "withdraw") title = "Took out of savings" + (goalName(e.goalId) ? " (" + goalName(e.goalId) + ")" : "");
       const confirming = ui.confirm === e.id;
       html += `<li class="tx${ui.openRow === e.id ? " open" : ""}" data-id="${e.id}"><span class="dot" style="background:${meta[0]}"></span>
-        <div class="what"><b>${esc(title || "Untitled")}${e.split ? '<span class="owner-tag">Split</span>' : ""}${e.recurringId ? '<span class="owner-tag">Monthly</span>' : ""}</b><small>${isHouse() ? `<i class="pdot" style="background:${pcolor(e.person)}"></i>` : ""}${esc([isHouse() ? pname(e.person) : "", e.note || (e.type === "expense" ? "Spent" : e.type === "income" ? "Income" : "")].filter(Boolean).join(" · "))}</small></div>
+        <div class="what"><b>${esc(title || "Untitled")}${e.split ? '<span class="owner-tag">Split</span>' : ""}${e.recurringId ? '<span class="owner-tag">Bill</span>' : ""}${e.countMonth && e.countMonth !== (e.date || "").slice(0, 7) ? '<span class="owner-tag">For ' + esc(monthName(e.countMonth, true)) + '</span>' : ""}${e.loanId && !countsMoney(e) ? '<span class="owner-tag">Loan · separate</span>' : ""}</b><small>${isHouse() ? `<i class="pdot" style="background:${pcolor(e.person)}"></i>` : ""}${esc([isHouse() ? pname(e.person) : "", e.note || (e.type === "expense" ? "Spent" : e.type === "income" ? "Income" : "")].filter(Boolean).join(" · "))}</small></div>
         <span class="amt num ${meta[1]}">${meta[2]}${esc(money(+e.amount))}</span>
         <span class="acts">${readOnly ? "" : confirming
           ? `<button class="icon-btn danger" data-del="${e.id}">Delete</button><button class="icon-btn" data-nodel="1">Keep</button>`
@@ -939,7 +1024,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   }
 
   function renderCats() {
-    const es = inMonth(ui.month).filter(e => e.type === "expense");
+    const es = inMonth(ui.month).filter(e => e.type === "expense" && countsMoney(e));
     const total = sum(es, e => +e.amount);
     const by = {};
     es.forEach(e => { const c = e.category || "Other"; by[c] = (by[c] || 0) + +e.amount; });
@@ -1038,7 +1123,9 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     const goalMode = ui.type === "save" || ui.type === "withdraw";
     const e = { type: ui.type, amount, date, note: $("fNote").value.trim(), created: Date.now(), person: entryWho() };
     if (ui.type === "expense" && $("fSplit").checked) e.split = { with: otherOf(e.person), share: 0.5 };
-    if (goalMode) { e.goalId = $("fGoal").value || ""; e.category = "Savings"; }
+    if (ui.type === "income" && $("fFor").value === "next") e.countMonth = shiftMonth(date.slice(0, 7), 1);
+    if (ui.type === "save" && $("fGoal").value === "__other") { const pur = $("fPurpose").value.trim(); e.goalId = ""; if (pur) e.note = "Saving for " + pur + (e.note ? " · " + e.note : ""); }
+    if (goalMode) { e.goalId = $("fGoal").value === "__other" ? "" : ($("fGoal").value || ""); e.category = "Savings"; }
     else e.category = $("fCat").value.trim() || (ui.type === "income" ? "Salary" : "Other");
     if (ui.type === "withdraw") {
       const avail = e.goalId ? goalBalance(e.goalId) : totalSavings(null, e.person);
@@ -1430,7 +1517,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       const goalMode = it.type === "save" || it.type === "withdraw";
       const foreign = it.currency && it.currency !== cur && !it.currencyOk;
       const dup = dupOf(it);
-      const cats = (it.type === "income" ? INC_CATS : EXP_CATS);
+      const cats = [...new Set((it.type === "income" ? INC_CATS : EXP_CATS).concat(state.entries.filter(e => e.type === it.type && e.category).map(e => e.category)))];
       const qs = it.questions.map((q, qi) => `<div class="q${q.picked !== null ? " done" : ""}"><span>${esc(q.question)}</span>${q.options.length ? `<div class="opts">${q.options.map((o, oi) => `<button type="button" data-i="${i}" data-q="${qi}" data-o="${oi}" aria-pressed="${q.picked === oi}">${esc(o.label)}</button>`).join("")}</div>` : ""}</div>`).join("");
       return `<div class="scard${it.include ? "" : " off"}">
         <div class="scard-top"><label><input type="checkbox" data-i="${i}" data-k="include" ${it.include ? "checked" : ""}> Add this</label>${it.confidence === "low" || miss.length || it.questions.some(q => q.picked === null) ? '<span class="flag">Check this</span>' : ""}</div>
@@ -1443,7 +1530,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
           <div class="field${miss.includes("date") ? " need" : ""}"><label for="sd${i}">Date</label><input id="sd${i}" type="date" data-i="${i}" data-k="date" value="${it.date || ""}"></div>
           ${goalMode
             ? `<div class="field"><label for="sg${i}">Goal</label><select id="sg${i}" data-i="${i}" data-k="goalId"><option value="">General savings</option>${visibleGoals(it.person).map(g => `<option value="${g.id}"${g.id === it.goalId ? " selected" : ""}>${esc(g.name)}</option>`).join("")}</select></div>`
-            : `<div class="field"><label for="sc${i}">Category</label><input id="sc${i}" list="scanCats${i}" data-i="${i}" data-k="category" value="${esc(it.category)}"><datalist id="scanCats${i}">${cats.map(c => `<option value="${esc(c)}">`).join("")}</datalist></div>`}
+            : (() => { const opts = [...new Set(cats.concat(it.category && !it.catOther ? [it.category] : []))]; const other = it.catOther; return `<div class="field"><label for="sc${i}">Category</label><select id="sc${i}" data-i="${i}" data-k="catsel">${opts.map(c => `<option value="${esc(c)}"${!other && c === it.category ? " selected" : ""}>${esc(c)}</option>`).join("")}<option value="__other"${other ? " selected" : ""}>Other (type your own)…</option></select>${other ? `<input id="sco${i}" data-i="${i}" data-k="category" value="${esc(it.category)}" placeholder="Type a category" aria-label="Your own category" style="margin-top:6px">` : ""}</div>`; })()}
         </div>
         <div class="field"><label for="sn${i}">Note</label><input id="sn${i}" maxlength="80" data-i="${i}" data-k="note" value="${esc(it.note)}"></div>
         ${dup ? (it.ref && dup.ref === it.ref ? `<div class="dup">This transfer (${esc(it.ref)}) is already in Pocket Ledger, so it's unticked.</div>` : `<div class="dup">You already have ${esc(money(+dup.amount))} on this date${dup.note ? " (" + esc(dup.note) + ")" : ""}. Untick this if it's the same one.</div>`) : ""}
@@ -1477,6 +1564,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     const k = el.dataset.k;
     if (k === "amount") { it.amount = num(el.value) > 0 ? num(el.value) : null; it.currencyOk = true; }
     else if (k === "include") it.include = el.checked;
+    else if (k === "catsel") { if (el.value === "__other") { it.catOther = true; it.category = ""; renderScan(); const o = $("sco" + el.dataset.i); if (o) o.focus(); } else { it.catOther = false; it.category = el.value; } return; }
     else it[k] = el.value;
     if (k === "type") it.typeKnown = true;
     if (k === "include" || k === "type" || k === "person") renderScan();
@@ -1533,7 +1621,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     const direction = a.direction === "borrowed" ? "borrowed" : "lent";
     const amount = r2(a.amount), date = /^\d{4}-\d{2}-\d{2}$/.test(a.date || "") ? a.date : todayISO();
     const counterparty = String(a.counterparty || "Friend").trim().slice(0, 40) || "Friend";
-    const loan = { person, direction, counterparty, amount, date, due: /^\d{4}-\d{2}-\d{2}$/.test(a.due || "") ? a.due : "", note: String(a.note || "").slice(0, 80), created: Date.now() };
+    const loan = { person, direction, counterparty, amount, date, due: /^\d{4}-\d{2}-\d{2}$/.test(a.due || "") ? a.due : "", note: String(a.note || "").slice(0, 80), inMonth: !!a.inMonth, created: Date.now() };
     const id = backend.saveDoc("loans", null, loan);
     backend.add({ type: direction === "lent" ? "expense" : "income", amount, date, person, category: direction === "lent" ? LOAN_OUT : LOAN_IN,
       note: (direction === "lent" ? "Loan to " : "Loan from ") + counterparty, created: Date.now(), loanId: id, loanRole: "start" });
@@ -1588,7 +1676,8 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     if (!(amount > 0)) { $("loanErr").textContent = "Enter the amount."; $("loanErr").hidden = false; return; }
     if (!cp) { $("loanErr").textContent = "Who is it with?"; $("loanErr").hidden = false; return; }
     $("loanErr").hidden = true;
-    createLoan({ direction: $("lnDir").value, counterparty: cp, amount, date: $("lnDate").value || todayISO(), due: $("lnDue").value, person: isHouse() ? $("lnWho").value : ui.view });
+    createLoan({ direction: $("lnDir").value, counterparty: cp, amount, date: $("lnDate").value || todayISO(), due: $("lnDue").value, person: isHouse() ? $("lnWho").value : ui.view, inMonth: $("lnInMonth").checked });
+    $("lnInMonth").checked = false;
     ["lnAmt", "lnName", "lnDue"].forEach(id => $(id).value = ""); $("loanBox").open = false; toast("Loan saved");
   });
 
@@ -1684,7 +1773,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   // ---------- budgets ----------
   const budgetsFor = who => ((state.settings.budgets || {})[who || ui.view]) || {};
   function spentIn(k, who, cat) {
-    return sum(state.entries.filter(e => e.type === "expense" && (e.date || "").slice(0, 7) === k && (who === "all" || e.person === who) && (!cat || (e.category || "Other") === cat)), e => +e.amount);
+    return sum(state.entries.filter(e => e.type === "expense" && effMonth(e) === k && countsMoney(e) && (who === "all" || e.person === who) && (!cat || (e.category || "Other") === cat)), e => +e.amount);
   }
   function renderBudgets() {
     const b = budgetsFor(ui.view), cats = Object.keys(b).filter(c => +b[c] > 0);
@@ -1729,7 +1818,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     const who = ui.view, months = [];
     for (let i = 11; i >= 0; i--) months.push(shiftMonth(ui.month, -i));
     const data = months.map(k => {
-      const es = state.entries.filter(e => (e.date || "").slice(0, 7) === k && (who === "all" || e.person === who));
+      const es = state.entries.filter(e => effMonth(e) === k && countsMoney(e) && (who === "all" || e.person === who));
       return { k, inc: sum(es.filter(e => e.type === "income"), e => +e.amount), out: sum(es.filter(e => e.type === "expense"), e => +e.amount) };
     });
     const max = Math.max(1, ...data.map(d => Math.max(d.inc, d.out)));
@@ -1892,7 +1981,8 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     a = a || {};
     const who = resolvePerson(a.person);
     const from = isoOk(a.from) ? a.from : "0000-01-01", to = isoOk(a.to) ? a.to : "9999-12-31";
-    let es = state.entries.filter(e => (who === "all" || e.person === who) && (e.date || "") >= from && (e.date || "") <= to);
+    const wantsLoans = /loan/i.test(String([].concat(a.category || []).join(" ") + " " + (a.search || "")));
+    let es = state.entries.filter(e => (who === "all" || e.person === who) && (e.date || "") >= from && (e.date || "") <= to && (wantsLoans || countsMoney(e)));
     const type = a.type && a.type !== "all" ? String(a.type) : null;
     if (type) es = es.filter(e => e.type === type);
     const cats = [].concat(a.category || []).filter(Boolean).map(c => String(c).toLowerCase());
@@ -1925,7 +2015,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     month_summary(a) {
       const k = /^\d{4}-\d{2}$/.test(String(a.month || "")) ? a.month : monthKey(new Date());
       const who = resolvePerson(a.person);
-      const es = state.entries.filter(e => (e.date || "").slice(0, 7) === k && (who === "all" || e.person === who));
+      const es = state.entries.filter(e => effMonth(e) === k && countsMoney(e) && (who === "all" || e.person === who));
       const t = { income: 0, spent: 0, save: 0, withdraw: 0 }; const cats = {};
       es.forEach(e => { const v = +e.amount || 0; if (e.type === "income") t.income += v; else if (e.type === "expense") { t.spent += v; cats[e.category || "Other"] = (cats[e.category || "Other"] || 0) + v; } else if (e.type === "save") t.save += v; else if (e.type === "withdraw") t.withdraw += v; });
       return { month: k, person: whoLabel(who), income: round2(t.income), spent: round2(t.spent), moved_to_savings: round2(t.save - t.withdraw), left_to_spend: round2(t.income - t.spent - (t.save - t.withdraw)),
@@ -1992,7 +2082,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       "- loan_repayment {counterparty, amount, date, person}: part or all of an open loan was paid back.",
       "- create_goal {name, target, by, owner}: a savings goal. by is \"YYYY-MM\" or null. owner is a person's name or \"shared\".",
       "- set_budget {category, amount, person}: a monthly spending limit for a category.",
-      "- add_recurring {type, amount, category, note, person, day, auto}: something that repeats every month on a day (salary, rent, bills, class fees). auto false means ask before adding.",
+      "- add_recurring {type, amount, category, note, person, day}: a monthly reminder for something due on a day each month (rent, bills, phone, electricity, class fees). It reminds; the user marks it paid.",
       "- settle_up {}: the partners have settled what they owe each other for shared costs.",
       "",
       'Rules: person is "me" for the person talking ("I", "my"), a person\'s name, or "all" for the household ("we", "our"). If unclear for lookups, use "all"; for changes, use "me". type is expense, income, save or withdraw. Dates are YYYY-MM-DD; work out relative dates from today; default to today. Use existing category names when one fits. Understand casual speech, slang and mixed languages. Use at most 4 calls.',
@@ -2060,7 +2150,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     if (tool === "add_recurring") {
       if (!(+a.amount > 0)) return null;
       const d = { type: ["expense", "income", "save", "withdraw"].includes(a.type) ? a.type : "expense", amount: round2(a.amount), category: a.category, note: a.note || "", person: meIfAll(a.person), day: parseInt(a.day, 10) || new Date().getDate(), auto: a.auto !== false };
-      return { tool, data: d, lines: ["Every month on day " + d.day + ": " + (d.note || d.category || d.type) + " · " + cur(d.amount) + " · " + pname(d.person) + (d.auto ? " · added automatically" : " · asks first")] };
+      return { tool, data: d, lines: ["Every month on day " + d.day + ": " + (d.note || d.category || d.type) + " · " + cur(d.amount) + " · " + pname(d.person) + (d.auto ? " · reminder" : " · reminder")] };
     }
     if (tool === "settle_up") {
       const bal = owesBalance(); if (Math.abs(bal) < 0.01) return { tool, invalid: true, lines: ["Nothing to settle: nobody owes anything for shared costs"] };
@@ -2325,7 +2415,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   ui.trendSel = null;
   function trendDetail(k) {
     const who = ui.view;
-    const es = state.entries.filter(e => (e.date || "").slice(0, 7) === k && (who === "all" || e.person === who));
+    const es = state.entries.filter(e => effMonth(e) === k && countsMoney(e) && (who === "all" || e.person === who));
     const inc = sum(es.filter(e => e.type === "income"), e => +e.amount), out = sum(es.filter(e => e.type === "expense"), e => +e.amount);
     const sav = sum(es, e => e.type === "save" ? +e.amount : e.type === "withdraw" ? -e.amount : 0);
     const cats = {}; es.filter(e => e.type === "expense").forEach(e => cats[e.category || "Other"] = (cats[e.category || "Other"] || 0) + +e.amount);
@@ -2343,6 +2433,287 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   trendBox.parentNode.replaceChild(trendClone, trendBox);
   trendClone.addEventListener("click", ev => { const g = ev.target.closest("g.mon"); if (!g) return; ui.trendSel = g.dataset.k; trendDetail(g.dataset.k); });
   renderTrend = (orig => function () { orig(); if (ui.trendSel) trendDetail(ui.trendSel); else $("trendDetail").hidden = true; })(renderTrend);
+
+  // ======================================================================
+  // v10: counts-for-month, loans kept separate, bills & reminders,
+  // dashboard tiles, dropdowns, font size, button labels, tidy entries.
+  // ======================================================================
+  function effMonth(e) { return e.countMonth || (e.date || "").slice(0, 7); }
+  function countsMoney(e) {
+    if (!e.loanId) return true;
+    const l = (state.loans || []).find(x => x.id === e.loanId);
+    return !!(l && l.inMonth);
+  }
+  const daysBetween = (a, b) => Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 864e5);
+
+  // ---------- appearance: font size + button labels (this device) ----------
+  function applyLook() {
+    const d = document.documentElement;
+    d.setAttribute("data-fs", lsGet("pl-fs") || "m");
+    d.setAttribute("data-tools", lsGet("pl-tools") || "icons");
+    document.querySelectorAll(".tool").forEach(b => { if (!b.querySelector(".tl")) { const s = document.createElement("span"); s.className = "tl"; s.textContent = b.getAttribute("title") || b.getAttribute("aria-label") || ""; b.appendChild(s); } });
+    document.querySelectorAll("#fsSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.fs === (lsGet("pl-fs") || "m"))));
+    document.querySelectorAll("#toolSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.tools === (lsGet("pl-tools") || "icons"))));
+  }
+  document.querySelectorAll("#fsSeg button").forEach(b => b.addEventListener("click", () => { lsSet("pl-fs", b.dataset.fs === "m" ? "" : b.dataset.fs); applyLook(); try { renderTrend(); } catch {} }));
+  document.querySelectorAll("#toolSeg button").forEach(b => b.addEventListener("click", () => { lsSet("pl-tools", b.dataset.tools === "icons" ? "" : b.dataset.tools); applyLook(); }));
+  applyLook();
+
+  // ---------- add-entry form: dropdown categories, "counts for", save/withdraw wording ----------
+  function catOptions() {
+    const t = ui.type, base = t === "income" ? INC_CATS : EXP_CATS;
+    const used = state.entries.filter(e => e.type === t && e.category && e.type !== "save" && e.type !== "withdraw").map(e => e.category);
+    return [...new Set(base.concat(used))];
+  }
+  function syncCatSel() {
+    const sel = $("fCatSel"), inp = $("fCat"), v = inp.value.trim(), opts = catOptions();
+    sel.innerHTML = `<option value="">Choose a category</option>` + opts.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("") + `<option value="__other">Other (type your own)…</option>`;
+    if (v && opts.includes(v)) { sel.value = v; inp.hidden = true; }
+    else if (v || ui.catOther) { sel.value = "__other"; inp.hidden = false; }
+    else { sel.value = ""; inp.hidden = true; }
+  }
+  $("fCatSel").addEventListener("change", () => {
+    const sel = $("fCatSel"), inp = $("fCat");
+    if (sel.value === "__other") { ui.catOther = true; inp.value = ""; inp.hidden = false; inp.focus(); }
+    else { ui.catOther = false; inp.value = sel.value; inp.hidden = true; }
+    inp.dispatchEvent(new Event("input"));
+  });
+  $("fNote").addEventListener("input", () => setTimeout(syncCatSel, 0));
+  $("fGoal").addEventListener("change", () => { ui.goalSel = $("fGoal").value; $("purposeRow").hidden = $("fGoal").value !== "__other"; if ($("fGoal").value === "__other") $("fPurpose").focus(); });
+  renderFormBits = (orig => function () {
+    orig();
+    const t = ui.type;
+    // save / withdraw goal picker with "something else"
+    const sel = $("fGoal");
+    if (t === "save") { sel.insertAdjacentHTML("beforeend", `<option value="__other">Something else (write it)…</option>`); }
+    if (ui.goalSel && [...sel.options].some(o => o.value === ui.goalSel)) sel.value = ui.goalSel;
+    $("purposeRow").hidden = !(t === "save" && sel.value === "__other");
+    $("goalLabel").textContent = t === "withdraw" ? "Take it from" : "Put it into";
+    $("noteLabel").innerHTML = t === "withdraw" ? 'Reason <span class="muted">(optional)</span>' : 'Note <span class="muted">(optional)</span>';
+    $("fNote").placeholder = t === "withdraw" ? "e.g. Car repair, will put back" : t === "income" ? "e.g. October salary" : "e.g. Groceries at Agora";
+    if (t === "withdraw") $("typeHint").textContent = "Money taken out of your savings. It's deducted from your savings (and the goal, if you pick one) and added to this month's money. Put it back later with Save.";
+    if (t === "income") $("typeHint").textContent = "Money coming in. If you're paid before the month ends, choose which month it's for.";
+    $("forRow").hidden = t !== "income";
+    if (!$("forRow").hidden) {
+      const k = ($("fDate").value || todayISO()).slice(0, 7);
+      $("fFor").options[0].textContent = "This month (" + monthName(k, true) + ")";
+      $("fFor").options[1].textContent = "Next month (" + monthName(shiftMonth(k, 1), true) + ")";
+    }
+    syncCatSel();
+  })(renderFormBits);
+  $("fDate").addEventListener("change", () => renderFormBits());
+  // editing an entry: restore "counts for" and category picker
+  $("ledger").addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-edit]"); if (!b) return;
+    const e = state.entries.find(x => x.id === b.dataset.edit); if (!e) return;
+    $("fFor").value = e.countMonth && e.countMonth !== (e.date || "").slice(0, 7) ? "next" : "this";
+    ui.goalSel = e.goalId || ""; ui.catOther = false;
+    renderFormBits();
+  });
+  resetForm = (orig => function () { ui.goalSel = ""; ui.catOther = false; $("fFor").value = "this"; $("fPurpose").value = ""; orig(); })(resetForm);
+
+  // ---------- entries: show the latest 5, then "Show all" ----------
+  ui.allEntries = false;
+  renderLedger = (orig => function () {
+    orig();
+    if (ui.search) return;
+    const list = $("ledger"), rows = [...list.querySelectorAll("li.tx")];
+    if (rows.length <= 5) return;
+    if (!ui.allEntries) {
+      rows.slice(5).forEach(r => r.hidden = true);
+      list.querySelectorAll("li.day").forEach(d => { let n = d.nextElementSibling, any = false; while (n && !n.classList.contains("day")) { if (!n.hidden) any = true; n = n.nextElementSibling; } if (!any) d.hidden = true; });
+    }
+    list.insertAdjacentHTML("beforeend", `<li class="more"><button class="ghost" type="button" id="moreEntries">${ui.allEntries ? "Show fewer" : "Show all " + rows.length + " entries"}</button></li>`);
+    $("moreEntries").onclick = () => { ui.allEntries = !ui.allEntries; renderLedger(); };
+  })(renderLedger);
+
+  // ---------- loans: progress, history, kept separate ----------
+  $("lnDir").addEventListener("change", () => { $("lnNameL").textContent = $("lnDir").value === "borrowed" ? "Who did you borrow from?" : "Who did you lend to?"; });
+  renderLoans = function () {
+    const who = ui.view, box = $("loanList");
+    const mine = state.loans.filter(l => who === "all" || l.person === who);
+    const open = mine.filter(l => loanOutstanding(l) > 0.004).sort((x, y) => (x.due || "9999").localeCompare(y.due || "9999"));
+    const done = mine.filter(l => loanOutstanding(l) <= 0.004);
+    const card = l => {
+      const out = loanOutstanding(l), paid = r2(+l.amount - out), pct = +l.amount ? Math.min(100, Math.round(paid / +l.amount * 100)) : 0;
+      const late = out > 0.004 && l.due && l.due < todayISO();
+      const hist = state.entries.filter(e => e.loanId === l.id && e.loanRole === "repay").sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+      const asking = ui.repayFor === l.id, lent = l.direction === "lent";
+      return `<div class="loan${late ? " late" : ""}${out <= 0.004 ? " paid" : ""}">
+        <div class="loan-top"><b>${lent ? "Lent to " : "Borrowed from "}${esc(l.counterparty)}</b><span class="num">${out <= 0.004 ? "Paid off ✓" : esc(money(out)) + " left"}</span></div>
+        <div class="meter loan-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Paid back"><div style="width:${pct}%"></div></div>
+        <div class="loan-meta">${isHouse() ? `<i class="pdot" style="background:${pcolor(l.person)}"></i>${esc(pname(l.person))} · ` : ""}${esc(money(paid, { whole: true }))} of ${esc(money(+l.amount, { whole: true }))} paid back (${pct}%) · since ${esc(fmtDate(l.date))}${l.due ? ` · ${late ? "was due" : "due"} ${esc(fmtDate(l.due))}` : ""}</div>
+        ${hist.length ? `<details class="loan-hist"><summary>${hist.length} repayment${hist.length === 1 ? "" : "s"}</summary><ul>${hist.map(h => `<li><span>${esc(fmtDate(h.date))}</span><b class="num">${esc(money(+h.amount))}</b></li>`).join("")}</ul></details>` : ""}
+        ${out > 0.004 ? (asking ? `<div class="loan-pay"><input id="repayAmt" type="number" inputmode="decimal" min="0" step="0.01" value="${out}" aria-label="Amount paid back"><input id="repayDate" type="date" value="${todayISO()}" aria-label="Date"><button class="primary" type="button" data-repay-ok="${l.id}">Save</button><button class="icon-btn" type="button" data-repay-x="1">Cancel</button></div>`
+          : `<div class="goal-acts"><button class="ghost" type="button" data-repay="${l.id}">${lent ? "They paid some back" : "I paid some back"}</button><button class="icon-btn" type="button" data-inmonth="${l.id}" title="Whether this loan counts in left to spend">${l.inMonth ? "Counted in monthly money" : "Kept separate"}</button></div>`) : ""}
+      </div>`;
+    };
+    box.innerHTML = open.length ? open.map(card).join("") : `<div class="empty" style="padding:8px"><span>No open loans.</span><span class="hint">Loans are kept separate from "left to spend" unless you choose otherwise. Tell the chat "I lent Ali 10k" or use New loan.</span></div>`;
+    $("loanClosed").innerHTML = done.length ? `<details class="loan-done"><summary>${done.length} paid-off loan${done.length === 1 ? "" : "s"}</summary><div class="loans">${done.map(card).join("")}</div></details>` : "";
+    $("lnWhoF").hidden = !isHouse();
+    if (isHouse()) $("lnWho").innerHTML = people().map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+  };
+  $("loanList").addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-inmonth]"); if (!b) return;
+    const l = state.loans.find(x => x.id === b.dataset.inmonth); if (!l) return;
+    backend.saveDoc("loans", l.id, Object.assign({}, l, { inMonth: !l.inMonth }));
+    toast(l.inMonth ? "Loan kept separate from monthly money" : "Loan now counts in monthly money");
+  }, true);
+  // repayments can be dated (installments)
+  $("loanList").addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-repay-ok]"); if (!b) return;
+    ev.stopImmediatePropagation();
+    const l = state.loans.find(x => x.id === b.dataset.repayOk); const amt = num($("repayAmt").value), d = $("repayDate").value || todayISO();
+    if (l && recordRepayment(l, amt, d)) { ui.repayFor = null; toast(loanOutstanding(l) - amt <= 0.004 ? "Loan fully paid back" : "Repayment saved"); }
+    else toast("Enter an amount up to what's still owed.");
+  }, true);
+
+  // ---------- bills & reminders (nothing is added automatically) ----------
+  processRecurring = function () {};
+  const remindDays = r => Math.max(1, Math.min(31, +r.remindDays || 7));
+  function billStatus(r, k) {
+    const due = dateIn(k, r.day), left = daysBetween(todayISO(), due), win = remindDays(r);
+    const level = left < 0 || left <= 1 ? "red" : left <= Math.ceil(win / 2) ? "amber" : "green";
+    return { k, due, left, level, show: left <= win };
+  }
+  function openBills(who) {
+    const now = monthKey(new Date()), out = [];
+    state.recurring.filter(r => !r.paused && (who === "all" || !who || r.person === who)).forEach(r => {
+      let k = r.startMonth || now; if (k > now) k = now;
+      for (let i = 0; i < 13 && k <= now; i++, k = shiftMonth(k, 1)) {
+        if ((r.skips || []).includes(k) || state.entries.some(e => e.id === "rec-" + r.id + "-" + k)) continue;
+        if (k < (r.startMonth || now)) continue;
+        const st = billStatus(r, k);
+        if (st.show) out.push({ r, ...st });
+      }
+      // next month's bill if its reminder window already started (e.g. due on the 2nd)
+      const nk = shiftMonth(now, 1), st = billStatus(r, nk);
+      if (st.show && !(r.skips || []).includes(nk) && !state.entries.some(e => e.id === "rec-" + r.id + "-" + nk)) out.push({ r, ...st });
+    });
+    return out.sort((a, b) => a.left - b.left);
+  }
+  function payBill(r, k, amount) {
+    const e = { type: r.type, amount: r2(amount > 0 ? amount : r.amount), date: todayISO(), person: r.person, category: r.category || "Other", note: r.note || "", created: Date.now(), recurringId: r.id };
+    if (k !== todayISO().slice(0, 7)) e.countMonth = k;
+    if (r.goalId) e.goalId = r.goalId;
+    if (r.split) e.split = r.split;
+    backend.addWithId("rec-" + r.id + "-" + k, e);
+    budgetCheck(e);
+  }
+  const lvlText = b => b.left < 0 ? "overdue by " + (-b.left) + " day" + (b.left === -1 ? "" : "s") : b.left === 0 ? "due today" : b.left === 1 ? "due tomorrow" : "due in " + b.left + " days";
+  renderRecurring = function () {
+    const who = ui.view, bills = openBills(who), bar = $("dueBar");
+    if (bills.length) {
+      bar.hidden = false; bar.className = "bills-bar";
+      bar.innerHTML = bills.slice(0, 4).map(b => {
+        const paying = ui.payFor === b.r.id + b.k;
+        return `<div class="bill ${b.level}"><div class="bill-main"><b>${esc(b.r.note || b.r.category)}</b><span>${esc(money(+b.r.amount, { whole: true }))} · ${lvlText(b)}${isHouse() ? " · " + esc(pname(b.r.person)) : ""}</span></div>
+          ${paying ? `<span class="row-btns"><input class="bill-amt" id="billAmt" type="number" inputmode="decimal" value="${+b.r.amount}" aria-label="Amount paid"><button class="primary" type="button" data-billok="${b.r.id}|${b.k}">Save</button><button class="icon-btn" type="button" data-billx="1">Cancel</button></span>`
+            : `<span class="row-btns"><button class="ghost" type="button" data-bill="${b.r.id}|${b.k}">${b.r.type === "income" ? "Received" : "Paid"}</button><button class="icon-btn" type="button" data-billskip="${b.r.id}|${b.k}">Skip</button></span>`}</div>`;
+      }).join("") + (bills.length > 4 ? `<div class="bill-more">+${bills.length - 4} more in Bills &amp; reminders</div>` : "");
+    } else bar.hidden = true;
+    const list = state.recurring.filter(r => who === "all" || r.person === who).sort((a, b) => (+a.day || 0) - (+b.day || 0));
+    const now = monthKey(new Date());
+    $("recList").innerHTML = list.length ? list.map(r => {
+      const kk = r.startMonth && r.startMonth > now ? r.startMonth : now;
+      const paidNow = state.entries.some(e => e.id === "rec-" + r.id + "-" + kk) || (r.skips || []).includes(kk);
+      const st = billStatus(r, kk), asking = ui.confirm === "r:" + r.id;
+      const dot = r.paused ? "off" : paidNow ? "done" : st.left < 0 ? "red" : st.show ? st.level : "green";
+      return `<div class="rec"><span class="rec-dot ${dot}" title="${paidNow ? "Done this month" : lvlText(st)}"></span><div class="rec-main"><b>${esc(r.note || r.category)}</b><small>${esc(money(+r.amount))} · day ${r.day} · reminds ${remindDays(r)} day${remindDays(r) === 1 ? "" : "s"} before${isHouse() ? " · " + esc(pname(r.person)) : ""} · ${r.paused ? "paused" : paidNow ? "done for " + monthName(kk, true) : lvlText(st)}</small></div>
+        <span class="row-btns">${asking ? `<button class="icon-btn danger" type="button" data-rdel="${r.id}">Delete</button><button class="icon-btn" type="button" data-rno="1">Keep</button>` : `<button class="icon-btn" type="button" data-ics="${r.id}" title="Add to your phone's calendar">Calendar</button><button class="icon-btn" type="button" data-rpause="${r.id}">${r.paused ? "Resume" : "Pause"}</button><button class="icon-btn" type="button" data-rask="${r.id}">Delete</button>`}</span></div>`;
+    }).join("") : `<div class="empty" style="padding:8px"><span>No bills or reminders yet.</span><span class="hint">Add rent, phone, electricity or water below. They turn green, then amber, then red as the due date gets close. Nothing is added until you tap Paid.</span></div>`;
+    $("brWhoF").hidden = !isHouse();
+    if (isHouse()) $("brWho").innerHTML = people().map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+    const cats = [...new Set(EXP_CATS.concat(INC_CATS))];
+    if (!$("brCat").options.length) $("brCat").innerHTML = cats.map(c => `<option value="${esc(c)}"${c === "Rent & bills" ? " selected" : ""}>${esc(c)}</option>`).join("");
+  };
+  $("dueBar").addEventListener("click", ev => {
+    const b = ev.target.closest("button"); if (!b) return;
+    const parse = v => { const [id, k] = v.split("|"); return { r: state.recurring.find(x => x.id === id), k }; };
+    if (b.dataset.bill) { ui.payFor = b.dataset.bill.replace("|", ""); renderRecurring(); setTimeout(() => $("billAmt") && $("billAmt").focus(), 30); }
+    else if (b.dataset.billx) { ui.payFor = null; renderRecurring(); }
+    else if (b.dataset.billok) { const { r, k } = parse(b.dataset.billok); if (r) { payBill(r, k, num($("billAmt").value)); ui.payFor = null; toast("Saved"); } }
+    else if (b.dataset.billskip) { const { r, k } = parse(b.dataset.billskip); if (r) { backend.saveDoc("recurring", r.id, Object.assign({}, r, { skips: [...new Set((r.skips || []).concat(k))].slice(-24) })); toast("Skipped for " + monthName(k, true)); } }
+  });
+  // calendar file so your phone reminds you even when the app is closed
+  function icsFor(r) {
+    const now = new Date(), k = monthKey(now), first = dateIn(k, r.day).replace(/-/g, "");
+    const stamp = now.toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+    const title = (r.note || r.category || "Bill") + " (" + money(+r.amount, { whole: true }) + ")";
+    return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Pocket Ledger//EN", "BEGIN:VEVENT", "UID:pl-" + r.id + "@pocket-ledger", "DTSTAMP:" + stamp,
+      "DTSTART;VALUE=DATE:" + first, "RRULE:FREQ=MONTHLY;BYMONTHDAY=" + Math.min(28, +r.day || 1), "SUMMARY:" + title.replace(/[,;]/g, " "),
+      "DESCRIPTION:Mark it paid in Pocket Ledger", "BEGIN:VALARM", "TRIGGER:-P" + remindDays(r) + "D", "ACTION:DISPLAY", "DESCRIPTION:" + title.replace(/[,;]/g, " ") + " is due soon", "END:VALARM",
+      "BEGIN:VALARM", "TRIGGER:PT9H", "ACTION:DISPLAY", "DESCRIPTION:" + title.replace(/[,;]/g, " ") + " is due today", "END:VALARM", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+  }
+  $("recList").addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-ics]"); if (!b) return;
+    const r = state.recurring.find(x => x.id === b.dataset.ics); if (!r) return;
+    const blob = new Blob([icsFor(r)], { type: "text/calendar" }), a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = (r.note || r.category || "bill").replace(/[^\w -]/g, "") + ".ics"; document.body.appendChild(a); a.click(); a.remove();
+    toast("Open the file to add it to your calendar");
+  });
+  $("saveBill").addEventListener("click", () => {
+    const name = $("brName").value.trim(), amount = num($("brAmt").value), day = parseInt($("brDay").value, 10);
+    const err = m => { $("brErr").textContent = m; $("brErr").hidden = false; };
+    if (!name) return err("Give it a name, like Electricity.");
+    if (!(amount > 0)) return err("Enter the usual amount.");
+    if (!(day >= 1 && day <= 31)) return err("Enter the day of the month it's due (1-31).");
+    $("brErr").hidden = true;
+    const k = monthKey(new Date());
+    backend.saveDoc("recurring", null, { type: $("brType").value, amount: r2(amount), category: $("brCat").value, note: name, person: isHouse() ? $("brWho").value : ui.view,
+      day, remindDays: Math.max(1, Math.min(31, parseInt($("brRemind").value, 10) || 7)), auto: false, startMonth: k, created: Date.now() });
+    ["brName", "brAmt", "brDay"].forEach(id => $(id).value = ""); $("billBox").open = false; toast("Reminder saved");
+  });
+  // the add-entry "Remind me every month" box
+  afterEntryAdded = function (e) {
+    if ($("fRepeat").checked && !e.recurringId) {
+      createRecurring({ type: e.type, amount: e.amount, category: e.category, note: e.note || e.category, person: e.person, day: +e.date.slice(8, 10), auto: false, startMonth: shiftMonth(e.date.slice(0, 7), 1), goalId: e.goalId, split: e.split });
+      toast("Added. You'll be reminded on day " + (+e.date.slice(8, 10)) + " each month.");
+    }
+    $("fRepeat").checked = false; $("fSplit").checked = false;
+    budgetCheck(e);
+  };
+
+  // ---------- dashboard: tiles you choose ----------
+  const TILES = [["income", "Income"], ["spent", "Spent"], ["saved", "Saved this month"], ["total", "Total savings"], ["split", "Income split bar"], ["bills", "Bills due"], ["budgets", "Budget alerts"], ["loans", "Loans"], ["goals", "Goals"]];
+  const hiddenTiles = () => { try { return JSON.parse(lsGet("pl-tiles") || "[]"); } catch { return []; } };
+  function renderTiles() {
+    const hide = new Set(hiddenTiles()), who = ui.view;
+    document.querySelectorAll("[data-tile]").forEach(el => el.hidden = hide.has(el.dataset.tile));
+    const tiles = [];
+    if (!hide.has("bills")) {
+      const bills = openBills(who), red = bills.filter(b => b.level === "red").length;
+      tiles.push(`<div class="tile ${red ? "t-red" : bills.length ? "t-amber" : "t-ok"}"><div class="label">Bills due</div><div class="v">${bills.length ? bills.length + " due" : "All clear"}</div><div class="h">${bills.length ? esc((bills[0].r.note || bills[0].r.category) + " " + lvlText(bills[0])) : "Nothing due soon"}</div></div>`);
+    }
+    if (!hide.has("budgets")) {
+      const b = budgetsFor(who), over = [], near = [];
+      Object.keys(b).forEach(c => { const lim = +b[c]; if (!(lim > 0)) return; const sp = spentIn(ui.month, who, c); if (sp >= lim) over.push(c + " +" + money(sp - lim, { whole: true })); else if (sp >= lim * 0.8) near.push(c); });
+      const n = Object.keys(b).filter(c => +b[c] > 0).length;
+      tiles.push(`<div class="tile ${over.length ? "t-red" : near.length ? "t-amber" : "t-ok"}"><div class="label">Budgets</div><div class="v">${!n ? "None set" : over.length ? over.length + " over" : near.length ? near.length + " close" : "On track"}</div><div class="h">${esc(over.length ? over.join(", ") : near.length ? near.join(", ") + " at 80%+" : n ? "All under limit" : "Set them under Where the money went")}</div></div>`);
+    }
+    if (!hide.has("loans")) {
+      const ls = openLoans(who), owedToMe = sum(ls.filter(l => l.direction === "lent"), loanOutstanding), iOwe = sum(ls.filter(l => l.direction === "borrowed"), loanOutstanding);
+      tiles.push(`<div class="tile"><div class="label">Loans</div><div class="v num">${ls.length ? esc(money(iOwe, { whole: true })) : "None"}</div><div class="h">${ls.length ? "owed by you · " + esc(money(owedToMe, { whole: true })) + " owed to you" : "No open loans"}</div></div>`);
+    }
+    if (!hide.has("goals")) {
+      const gs = visibleGoals(who).filter(g => +g.target > 0);
+      const g = gs.map(g => ({ g, p: Math.min(100, Math.round(goalBalance(g.id) / +g.target * 100)) })).sort((a, b) => b.p - a.p)[0];
+      tiles.push(`<div class="tile"><div class="label">Goals</div><div class="v">${g ? g.p + "%" : "None"}</div><div class="h">${g ? esc(g.g.name) + (gs.length > 1 ? " · +" + (gs.length - 1) + " more" : "") : "Create one in Savings goals"}</div></div>`);
+    }
+    $("tiles").innerHTML = tiles.join("");
+    $("tiles").hidden = !tiles.length;
+    $("tileCfg").innerHTML = ui.tileCfg ? `<p class="hint" style="margin:0">Choose what shows here on this device:</p><div class="tile-opts">${TILES.map(([k, l]) => `<label class="check"><input type="checkbox" data-tk="${k}" ${hide.has(k) ? "" : "checked"}><span>${l}</span></label>`).join("")}</div>` : "";
+    $("tileCfg").hidden = !ui.tileCfg;
+    $("tileBtn").textContent = ui.tileCfg ? "Done" : "Customize";
+  }
+  $("tileBtn").addEventListener("click", () => { ui.tileCfg = !ui.tileCfg; renderTiles(); });
+  $("tileCfg").addEventListener("change", ev => {
+    const c = ev.target.closest("input[data-tk]"); if (!c) return;
+    const h = new Set(hiddenTiles()); c.checked ? h.delete(c.dataset.tk) : h.add(c.dataset.tk);
+    lsSet("pl-tiles", JSON.stringify([...h])); renderTiles();
+  });
+
+  render = (orig => function () { orig(); try { renderTiles(); } catch (err) { console.error(err); } })(render);
 
   // ---------- settings: this device, household, account ----------
   function openSettings() { if ($("settingsPanel").hidden) $("settingsBtn").click(); $("settingsPanel").scrollIntoView({ behavior: "smooth", block: "start" }); }
