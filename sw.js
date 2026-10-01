@@ -1,5 +1,5 @@
 // Pocket Ledger service worker: makes the app open offline and installable.
-const VERSION = "pl-v5";
+const VERSION = "pl-v6";
 const SHELL = ["./", "./index.html", "./app.js", "./config.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/favicon-32.png", "./icons/apple-touch-icon.png"];
 

@@ -95,6 +95,30 @@
 .pcolors button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line); padding: 0; }
 .pcolors button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); }
 .pdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.fab { position: fixed; right: 16px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 12; width: 56px; height: 56px; border-radius: 18px; border: 0; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; box-shadow: 0 6px 18px rgba(0,0,0,.22); }
+body.chat-open .fab { display: none; }
+.chat { position: fixed; z-index: 16; right: 16px; bottom: 16px; width: min(440px, calc(100% - 32px)); height: min(680px, calc(100% - 32px)); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.25); display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+.chat[hidden] { display: none; }
+@media (max-width: 560px) { .chat { inset: 0; width: 100%; height: 100%; border-radius: 0; border: 0; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); } }
+.chat-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.chat-head h2 { font-size: 1.05rem; }
+.chat-msgs { overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
+.msg { max-width: 88%; padding: 10px 12px; border-radius: 14px; font-size: .93rem; line-height: 1.45; overflow-wrap: anywhere; display: grid; gap: 6px; }
+.msg.me { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; }
+.msg.ai { align-self: flex-start; background: var(--sunk); color: var(--ink); border-bottom-left-radius: 4px; }
+.msg.ai.err { background: var(--warn-bg); color: var(--warn-ink); }
+.msg small { color: var(--ink-3); font-size: .75rem; }
+.msg .li { display: block; padding-left: 14px; position: relative; }
+.msg .li::before { content: "•"; position: absolute; left: 2px; }
+.msg .ghost { justify-self: start; }
+.chat-empty { color: var(--ink-2); font-size: .92rem; display: grid; gap: 12px; }
+.chat-empty p { margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chipq { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 999px; padding: 7px 12px; font-size: .85rem; text-align: left; }
+.chat-form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); align-items: flex-end; }
+.chat-form textarea { flex: 1; min-width: 0; resize: none; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 12px; padding: 10px 12px; font: inherit; max-height: 120px; }
+.chat-form textarea:focus { outline: none; border-color: var(--accent); }
+body .wrap { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 * { box-sizing: border-box; }
 html { color-scheme: light; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
@@ -285,6 +309,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     </div>
     <div class="toolbar">
       <button class="tool" id="installBtn" title="Install app" aria-label="Install app" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/><path d="M10.5 18.5h3"/></svg></button>
+      <button class="tool" id="chatBtn" title="Ask about your money" aria-label="Ask about your money"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12.5a7.5 7.5 0 0 1-11.2 6.5L4 20l1.1-4.3A7.5 7.5 0 1 1 20 12.5z"/><path d="M9 11h6M9 14h4"/></svg></button>
       <button class="tool" id="scanBtn" title="Scan a receipt or screenshot" aria-label="Scan a receipt or screenshot"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h1.5l1.5-2h6l1.5 2H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg></button>
       <button class="tool" id="settingsBtn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
       <button class="tool" id="exportBtn" title="Export to spreadsheet (CSV)" aria-label="Export to spreadsheet (CSV)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6"/><path d="m9 15 3 3 3-3"/></svg></button>
@@ -336,10 +361,10 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     <p class="hint" style="margin:0">These help scanning tell whose transfer it is and whether money went out or came in. People who pay you often save you under a nickname, so the last 4 digits of your account number are the most reliable. Only the last 4 digits are kept. Separate several with commas.</p>
     <p class="hint" style="margin:0">"Savings they already had" is each person's starting balance before you began logging here. It counts toward total savings but not toward any goal.</p>
     <div class="setsec">
-      <h3>Scanning on this device</h3>
-      <div class="field"><label for="setKey">Gemini API key</label><input id="setKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key from Google AI Studio"></div>
-      <p class="hint" style="margin:0">Kept on this device only, never in the shared data. Get a free key at aistudio.google.com, then Get API key.</p>
-      <details class="box"><summary>Advanced</summary><div><div class="field"><label for="setModel">Gemini model</label><input id="setModel" spellcheck="false" placeholder="Automatic (gemini-3.8-flash)"></div></div></details>
+      <h3>Gemini (scanning and chat)</h3>
+      <div class="field"><label for="setHKey">Gemini key for the household</label><input id="setHKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key from Google AI Studio"></div>
+      <p class="hint" style="margin:0">Saved with your household's data, so everyone in the household can scan and chat without their own key. Everyone in the household can see it. Get one at aistudio.google.com, then Get API key.</p>
+      <details class="box"><summary>Advanced</summary><div><div class="field"><label for="setKey">Use a different key on this device (optional)</label><input id="setKey" type="password" autocomplete="off" spellcheck="false" placeholder="Leave empty to use the household key"></div><div class="field"><label for="setModel">Gemini model</label><input id="setModel" spellcheck="false" placeholder="Automatic (gemini-3.8-flash)"></div></div></details>
     </div>
     <div><button class="primary" id="saveSettings">Save settings</button></div>
     <div class="setsec">
@@ -454,6 +479,12 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     </aside>
   </div>
 </div>
+<button class="fab" id="chatFab" aria-label="Ask about your money"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12.5a7.5 7.5 0 0 1-11.2 6.5L4 20l1.1-4.3A7.5 7.5 0 1 1 20 12.5z"/><path d="M9 11h6M9 14h4"/></svg></button>
+<section class="chat" id="chatPanel" hidden aria-label="Ask about your money">
+  <div class="chat-head"><h2>Ask about your money</h2><span><button class="icon-btn" id="chatClear" type="button">New chat</button><button class="icon-btn" id="chatClose" type="button">Close</button></span></div>
+  <div class="chat-msgs" id="chatMsgs" aria-live="polite"></div>
+  <form class="chat-form" id="chatForm"><textarea id="chatInput" rows="1" placeholder="e.g. How much did I spend on eating out this month?" aria-label="Your question"></textarea><button class="primary" id="chatSend" type="submit">Ask</button><button class="ghost" id="chatStop" type="button" hidden>Stop</button></form>
+</section>
 <div class="toast" id="toast" hidden></div>
 
 <div class="gate" id="gate">
@@ -589,6 +620,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       saveGoal: (id, g) => fire(F.setDoc(id ? F.doc(G, id) : F.doc(G), clean(g))),
       removeGoal: id => fire(F.deleteDoc(F.doc(G, id))),
       saveSettings: st => fire(F.updateDoc(hh, { settings: clean(Object.assign({}, state.settings, st)) })),
+      saveGemini: key => fire(F.updateDoc(hh, { gemini: { key: key || "" } })),
       replaceAll: async d => {
         const inE = (d.entries || []).map(e => Object.assign({ person: "p1" }, e));
         const inG = (d.goals || []).map(g => Object.assign({ owner: "p1" }, g));
@@ -1002,12 +1034,14 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   });
   $("fWho").addEventListener("change", renderFormBits);
 
-  // ---------- Gemini (scanning) ----------
+  // ---------- Gemini (scanning + chat) ----------
   const KEY_LS = "pl-gemini-key", MODEL_LS = "pl-gemini-model";
   const MODEL_CHAIN = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
   const lsGet = k => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
   const lsSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} };
-  const geminiKey = () => lsGet(KEY_LS).trim();
+  // A key set on this device wins; otherwise the household's shared key.
+  const householdKey = () => String((household && household.gemini && household.gemini.key) || "").trim();
+  const geminiKey = () => lsGet(KEY_LS).trim() || householdKey();
   async function shrinkImage(file) {
     let bmp;
     try { bmp = await createImageBitmap(file); } catch { throw { code: "image_rejected", message: (file.type || "unknown type") + ", " + Math.round((file.size || 0) / 1024) + " KB" }; }
@@ -1018,14 +1052,18 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     if (bmp.close) bmp.close();
     return c.toDataURL("image/jpeg", 0.85).split(",")[1];
   }
-  async function geminiJson(prompt, files, signal) {
+  async function geminiText(prompt, files, opts) {
+    opts = opts || {};
+    const signal = opts.signal;
     const key = geminiKey();
     if (!key) throw { code: "no_key" };
     if (!navigator.onLine) throw { code: "offline" };
     const parts = [{ text: prompt }];
-    for (const f of files) parts.push({ inline_data: { mime_type: "image/jpeg", data: await shrinkImage(f) } });
+    for (const f of files || []) parts.push({ inline_data: { mime_type: "image/jpeg", data: await shrinkImage(f) } });
     if (signal && signal.aborted) throw { code: "cancelled" };
-    const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { response_mime_type: "application/json", temperature: 0.1 } });
+    const gen = { temperature: opts.temperature ?? 0.1 };
+    if (opts.json) gen.response_mime_type = "application/json";
+    const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: gen });
     const call = async model => {
       try {
         return await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent", {
@@ -1059,11 +1097,17 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     const cand = (j.candidates || [])[0];
     const text = cand && cand.content ? (cand.content.parts || []).filter(p => !p.thought).map(p => p.text || "").join("") : "";
     if (!text) throw { code: j.promptFeedback && j.promptFeedback.blockReason ? "refused" : "http", message: "Empty answer" + (cand && cand.finishReason ? " (" + cand.finishReason + ")" : "") };
-    const t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+    return text;
+  }
+  function parseJsonText(text) {
+    const t = String(text).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
     try { return JSON.parse(t); } catch {}
     const m = t.match(/\{[\s\S]*\}/);
     if (m) { try { return JSON.parse(m[0]); } catch {} }
     throw { code: "http", message: "Couldn't understand the answer: " + t.slice(0, 120) };
+  }
+  async function geminiJson(prompt, files, signal) {
+    return parseJsonText(await geminiText(prompt, files, { json: true, signal }));
   }
 
   // ---------- scan a receipt or screenshot ----------
@@ -1286,11 +1330,233 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     } else $("scanAdd").disabled = false;
   });
 
+  // ---------- Ask Gemini (chat about your money) ----------
+  const chat = { msgs: [], busy: false, abort: null };
+  const round2 = n => Math.round((+n || 0) * 100) / 100;
+  const askerPerson = () => ((household && household.personOf) || {})[fbctx && fbctx.user && fbctx.user.uid] || "p1";
+
+  function resolvePerson(p) {
+    if (!p) return "all";
+    const s = String(p).trim().toLowerCase();
+    if (["all", "household", "everyone", "both", "us", "we"].includes(s)) return "all";
+    if (["me", "i", "asker", "my", "mine"].includes(s)) return askerPerson();
+    if (s === "p1" || s === "p2") return s;
+    const hit = people().find(x => x.name.trim().toLowerCase() === s) || people().find(x => s.includes(x.name.trim().toLowerCase()));
+    return hit ? hit.id : "all";
+  }
+  const whoLabel = who => who === "all" ? "Household" : pname(who);
+  const goalNameOf = id => (state.goals.find(g => g.id === id) || {}).name || "";
+  const isoOk = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ""));
+
+  function filterEntries(a) {
+    a = a || {};
+    const who = resolvePerson(a.person);
+    const from = isoOk(a.from) ? a.from : "0000-01-01", to = isoOk(a.to) ? a.to : "9999-12-31";
+    let es = state.entries.filter(e => (who === "all" || e.person === who) && (e.date || "") >= from && (e.date || "") <= to);
+    const type = a.type && a.type !== "all" ? String(a.type) : null;
+    if (type) es = es.filter(e => e.type === type);
+    const cats = [].concat(a.category || []).filter(Boolean).map(c => String(c).toLowerCase());
+    if (cats.length) es = es.filter(e => { const c = (e.category || "").toLowerCase(); return cats.some(x => c === x || c.includes(x) || x.includes(c) && c.length > 3); });
+    if (a.search) { const q = String(a.search).toLowerCase(); es = es.filter(e => ((e.note || "") + " " + (e.category || "") + " " + goalNameOf(e.goalId)).toLowerCase().includes(q)); }
+    return { es, who, from: isoOk(a.from) ? a.from : "first entry", to: isoOk(a.to) ? a.to : "latest entry" };
+  }
+
+  const TOOLS = {
+    totals(a) {
+      const { es, who, from, to } = filterEntries(a);
+      const res = { person: whoLabel(who), from, to, type: a.type || "all", category: a.category || null, search: a.search || null, total: round2(sum(es, e => +e.amount)), count: es.length };
+      const by = a.groupBy;
+      if (by && by !== "none") {
+        const g = {};
+        es.forEach(e => {
+          const k = by === "category" ? (e.category || "Other") : by === "month" ? (e.date || "").slice(0, 7) : by === "person" ? pname(e.person) : by === "type" ? e.type : by === "day" ? e.date : "all";
+          (g[k] = g[k] || { key: k, total: 0, count: 0 }); g[k].total += +e.amount; g[k].count++;
+        });
+        res.groups = Object.values(g).map(x => Object.assign(x, { total: round2(x.total) })).sort((x, y) => by === "month" || by === "day" ? x.key.localeCompare(y.key) : y.total - x.total).slice(0, 40);
+      }
+      return res;
+    },
+    list(a) {
+      const { es, who, from, to } = filterEntries(a);
+      const lim = Math.max(1, Math.min(+a.limit || 15, 40));
+      const sorted = es.slice().sort(a.sort === "largest" ? (x, y) => y.amount - x.amount : a.sort === "oldest" ? (x, y) => x.date.localeCompare(y.date) : (x, y) => y.date.localeCompare(x.date));
+      return { person: whoLabel(who), from, to, count: es.length, shown: sorted.slice(0, lim).map(e => ({ date: e.date, type: e.type, amount: +e.amount, category: e.category || "", note: e.note || "", person: pname(e.person), goal: goalNameOf(e.goalId) || undefined })) };
+    },
+    month_summary(a) {
+      const k = /^\d{4}-\d{2}$/.test(String(a.month || "")) ? a.month : monthKey(new Date());
+      const who = resolvePerson(a.person);
+      const es = state.entries.filter(e => (e.date || "").slice(0, 7) === k && (who === "all" || e.person === who));
+      const t = { income: 0, spent: 0, save: 0, withdraw: 0 }; const cats = {};
+      es.forEach(e => { const v = +e.amount || 0; if (e.type === "income") t.income += v; else if (e.type === "expense") { t.spent += v; cats[e.category || "Other"] = (cats[e.category || "Other"] || 0) + v; } else if (e.type === "save") t.save += v; else if (e.type === "withdraw") t.withdraw += v; });
+      return { month: k, person: whoLabel(who), income: round2(t.income), spent: round2(t.spent), moved_to_savings: round2(t.save - t.withdraw), left_to_spend: round2(t.income - t.spent - (t.save - t.withdraw)),
+        top_spending: Object.entries(cats).sort((x, y) => y[1] - x[1]).slice(0, 6).map(([c, v]) => ({ category: c, total: round2(v) })) };
+    },
+    goals(a) {
+      const who = resolvePerson(a.person); const nowK = monthKey(new Date());
+      return visibleGoals(who).map(g => {
+        const bal = goalBalance(g.id), tgt = +g.target || 0, m = g.by ? monthsBetween(nowK, g.by) : null;
+        return { name: g.name, owner: g.owner === "shared" ? "Shared" : pname(g.owner), target: tgt, saved: round2(bal), percent: tgt ? Math.round(bal / tgt * 100) : 0, remaining: round2(Math.max(tgt - bal, 0)),
+          target_month: g.by || null, months_left: m, needed_per_month: m && m > 0 && tgt > bal ? round2((tgt - bal) / m) : null,
+          contributions: people().map(p => ({ person: p.name, saved: round2(goalBalance(g.id, p.id)) })) };
+      });
+    },
+    savings(a) {
+      const who = resolvePerson(a.person);
+      const total = totalSavings(null, who), inGoals = sum(visibleGoals(who), g => goalBalance(g.id, who));
+      return { person: whoLabel(who), total_savings: round2(total), in_goals: round2(inGoals), not_in_a_goal: round2(total - inGoals) };
+    }
+  };
+  const TOOL_LABEL = { totals: "totals", list: "entries", month_summary: "month summary", goals: "goals", savings: "savings", propose_entries: "new entries" };
+
+  function chatContext() {
+    const cats = [...new Set(EXP_CATS.concat(INC_CATS, state.entries.map(e => e.category).filter(Boolean)))];
+    const dates = state.entries.map(e => e.date).filter(Boolean).sort();
+    return [
+      "- Today is " + todayISO() + " (" + new Date().toLocaleDateString("en-GB", { weekday: "long" }) + "). Currency: " + (state.settings.currency || "MVR") + ".",
+      "- People: " + people().map(p => p.name).join(", ") + ". The person asking is " + pname(askerPerson()) + ". The app screen is showing " + whoLabel(ui.view) + " for " + monthName(ui.month) + ".",
+      "- Categories in use: " + cats.join(", ") + ".",
+      "- Savings goals: " + (state.goals.length ? state.goals.map(g => g.name + " (" + (g.owner === "shared" ? "shared" : pname(g.owner)) + ")").join(", ") : "none") + ".",
+      "- Data: " + state.entries.length + " entries" + (dates.length ? ", from " + dates[0] + " to " + dates[dates.length - 1] : "") + "."
+    ].join("\n");
+  }
+  const historyText = () => chat.msgs.slice(-9, -1).map(m => (m.role === "user" ? "User: " : "Assistant: ") + m.text).join("\n") || "(none)";
+
+  function planPrompt(q) {
+    return [
+      "You are the assistant inside Pocket Ledger, a household money tracker. Decide which data lookups are needed to answer the latest message. Reply with JSON only.",
+      "", "Context:", chatContext(), "",
+      "Lookups you can request:",
+      '- totals {from, to, person, type, category, search, groupBy}: sum and count of matching entries. groupBy is one of "category", "month", "person", "type", "day" or "none".',
+      '- list {from, to, person, type, category, search, sort, limit}: individual entries. sort is "newest", "oldest" or "largest". limit up to 40.',
+      '- month_summary {month, person}: income, spending, savings and what is left for one month ("YYYY-MM"), plus top spending categories.',
+      "- goals {person}: savings goals with progress, contributions and what is needed per month.",
+      "- savings {person}: total savings, how much is in goals and how much is not.",
+      '- propose_entries {entries: [{type, amount, date, category, note, person, goal}]}: ONLY when the user asks to add or record something. The user will check them before they are saved.',
+      "",
+      'Rules: person is "me" for the person asking ("I", "my"), a person\'s name, or "all" for the household ("we", "our", "us"). If unclear, use "all". type is expense (spending), income, save (money moved into savings) or withdraw (money taken out of savings); leave it out for everything. Dates are YYYY-MM-DD and inclusive; work out relative dates ("this month", "last week", "in September") from today. Use category names from the list above when one fits. Use at most 4 lookups.',
+      "",
+      "Conversation so far:", historyText(), "",
+      "Latest message: " + q, "",
+      'Reply with exactly: {"calls": [{"tool": "...", "args": {...}}], "reply": null}',
+      "If no lookup is needed (a greeting, a question about how the app works, or something unclear), return an empty calls list and put a short reply or a clarifying question in reply."
+    ].join("\n");
+  }
+  function answerPrompt(q, results) {
+    return [
+      "You are the assistant inside Pocket Ledger, a household money tracker. Answer the latest message using ONLY the lookup results below.",
+      "Be brief and friendly: 1-4 sentences, or a short list with lines starting \"- \". Use plain language and amounts like \"MVR 1,250.00\". Say which period and whose money the numbers cover. You may use **bold** for the key number. No headings.",
+      "If the results don't contain what is needed, say so and suggest a way to ask. If new entries were proposed, say they're on a card to check before they're added. Only give money advice if asked, and keep it simple and kind.",
+      "", "Context:", chatContext(), "",
+      "Conversation so far:", historyText(), "",
+      "Latest message: " + q, "",
+      "Lookup results (JSON):", JSON.stringify(results).slice(0, 60000)
+    ].join("\n");
+  }
+
+  function fmtReply(t) {
+    return esc(String(t || "").trim()).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+      .split("\n").map(l => /^\s*[-•]\s+/.test(l) ? "<span class=\"li\">" + l.replace(/^\s*[-•]\s+/, "") + "</span>" : l).join("<br>")
+      .replace(/<br>(<span class="li">)/g, "$1").replace(/(<\/span>)<br>/g, "$1");
+  }
+  function renderChat() {
+    const box = $("chatMsgs");
+    if (!chat.msgs.length) {
+      const sugg = ["How much did we spend this month?", "What did I spend most on last month?", "How much have we spent on eating out this year?", "How are our savings goals going?"];
+      box.innerHTML = `<div class="chat-empty"><p>Ask anything about your household's money. I look up the exact numbers in Pocket Ledger and explain them.</p><div class="chips">${sugg.map(s => `<button type="button" class="chipq">${esc(s)}</button>`).join("")}</div></div>`;
+    } else {
+      box.innerHTML = chat.msgs.map(m => m.role === "user"
+        ? `<div class="msg me">${esc(m.text)}</div>`
+        : `<div class="msg ai${m.error ? " err" : ""}"><div>${m.pending ? '<span class="spin" aria-hidden="true"></span>Looking that up…' : fmtReply(m.text)}</div>${m.note ? `<small>${esc(m.note)}</small>` : ""}${m.action ? `<button type="button" class="ghost" data-act="${m.action}">${m.action === "settings" ? "Open Settings" : "Review entries"}</button>` : ""}</div>`).join("");
+    }
+    box.scrollTop = box.scrollHeight;
+    $("chatSend").disabled = chat.busy;
+    $("chatStop").hidden = !chat.busy;
+  }
+  function openChat() { $("chatPanel").hidden = false; document.body.classList.add("chat-open"); renderChat(); setTimeout(() => $("chatInput").focus(), 50); }
+  function closeChat() { $("chatPanel").hidden = true; document.body.classList.remove("chat-open"); }
+  $("chatBtn").addEventListener("click", openChat);
+  $("chatFab").addEventListener("click", openChat);
+  $("chatClose").addEventListener("click", closeChat);
+  $("chatClear").addEventListener("click", () => { if (chat.abort) chat.abort.abort(); chat.msgs = []; chat.busy = false; renderChat(); });
+  $("chatStop").addEventListener("click", () => { if (chat.abort) chat.abort.abort(); });
+  $("chatMsgs").addEventListener("click", ev => {
+    const c = ev.target.closest(".chipq"); if (c) { $("chatInput").value = c.textContent; askChat(); return; }
+    const b = ev.target.closest("button[data-act]"); if (!b) return;
+    if (b.dataset.act === "settings") { closeChat(); openSettings(); }
+    if (b.dataset.act === "review") { closeChat(); $("scanPanel").hidden = false; $("scanPanel").scrollIntoView({ behavior: "smooth", block: "start" }); }
+  });
+  $("chatForm").addEventListener("submit", ev => { ev.preventDefault(); askChat(); });
+  $("chatInput").addEventListener("keydown", ev => { if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); askChat(); } });
+
+  function showProposals(list) {
+    const cur = state.settings.currency || "MVR";
+    scanItems = list.map(t => {
+      const type = ["expense", "income", "save", "withdraw"].includes(t.type) ? t.type : "expense";
+      const who = resolvePerson(t.person); const goal = t.goal ? state.goals.find(g => g.name.toLowerCase() === String(t.goal).toLowerCase()) : null;
+      return { include: true, type, typeKnown: true, amount: +t.amount > 0 ? round2(t.amount) : null, date: isoOk(t.date) ? t.date : todayISO(), currency: cur, currencyOk: true,
+        category: String(t.category || (type === "income" ? "Salary" : "Other")), note: String(t.note || "").slice(0, 80), goalId: goal ? goal.id : "",
+        person: who === "all" ? askerPerson() : who, ref: "", confidence: "high", questions: [] };
+    }).filter(x => x.amount);
+    if (!scanItems.length) return false;
+    $("scanTitle").textContent = "Check before adding";
+    setScanStatus("From your chat. Change anything that's not right, then add.", false);
+    $("scanErr").hidden = true; $("scanPanel").hidden = false;
+    renderScan();
+    return true;
+  }
+
+  async function askChat() {
+    const q = $("chatInput").value.trim();
+    if (!q || chat.busy) return;
+    $("chatInput").value = "";
+    chat.msgs.push({ role: "user", text: q });
+    const reply = { role: "model", text: "", pending: true };
+    chat.msgs.push(reply);
+    chat.busy = true; const ctl = new AbortController(); chat.abort = ctl;
+    renderChat();
+    try {
+      const plan = parseJsonText(await geminiText(planPrompt(q), [], { json: true, signal: ctl.signal }));
+      const calls = (Array.isArray(plan && plan.calls) ? plan.calls : []).slice(0, 4);
+      if (!calls.length) {
+        reply.text = (plan && plan.reply) || "Could you say that another way? For example: \"How much did I spend on eating out this month?\"";
+      } else {
+        const results = []; let proposed = false;
+        for (const c of calls) {
+          const name = String(c.tool || ""), args = c.args || {};
+          if (name === "propose_entries") { proposed = showProposals(Array.isArray(args.entries) ? args.entries : []) || proposed; results.push({ tool: name, result: proposed ? "Shown to the user on a card to check before adding." : "Nothing to add: amounts were missing." }); continue; }
+          const fn = TOOLS[name];
+          results.push({ tool: name, args, result: fn ? fn(args) : "Unknown lookup" });
+        }
+        reply.text = await geminiText(answerPrompt(q, results), [], { signal: ctl.signal, temperature: 0.3 });
+        reply.note = "Looked up: " + [...new Set(calls.map(c => TOOL_LABEL[c.tool] || c.tool))].join(", ");
+        if (proposed) reply.action = "review";
+      }
+    } catch (e) {
+      if (e && !e.code && e.message) e = { code: "http", message: e.message };
+      const code = e && e.code;
+      if (code === "cancelled") { reply.text = "Stopped."; }
+      else {
+        reply.error = true;
+        reply.text = {
+          no_key: "Add a Gemini key in Settings first. One key for the household lets everyone chat and scan.",
+          bad_key: "Google didn't accept the Gemini key. Check it in Settings.",
+          offline: "Chat needs an internet connection.",
+          rate_limited: "Gemini's free limit was reached for now. Try again in a minute."
+        }[code] || "Something went wrong. Try asking again.";
+        if (code === "no_key" || code === "bad_key") reply.action = "settings";
+        if (e && e.message && code === "http") reply.note = "Details: " + String(e.message).slice(0, 200);
+      }
+    }
+    reply.pending = false; chat.busy = false; chat.abort = null;
+    renderChat();
+  }
+
   // ---------- settings: this device, household, account ----------
   function openSettings() { if ($("settingsPanel").hidden) $("settingsBtn").click(); $("settingsPanel").scrollIntoView({ behavior: "smooth", block: "start" }); }
   function inviteUrl() { return fbctx ? location.origin + location.pathname + "?join=" + fbctx.hid : ""; }
   $("settingsBtn").addEventListener("click", () => {
-    $("setKey").value = geminiKey(); $("setModel").value = lsGet(MODEL_LS);
+    const dk = lsGet(KEY_LS).trim(), hk = householdKey();
+    $("setHKey").value = hk || dk; $("setKey").value = dk && dk !== (hk || dk) ? dk : ""; $("setModel").value = lsGet(MODEL_LS);
     const pp = people();
     $("setBank1").value = (pp[0] || {}).bank || ""; $("setBank2").value = (pp[1] || {}).bank || "";
     $("setAcct1").value = (pp[0] || {}).acct || ""; $("setAcct2").value = (pp[1] || {}).acct || "";
@@ -1304,7 +1570,11 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     $("acctInfo").textContent = fbctx && fbctx.user ? "Signed in as " + (fbctx.user.email || "you") + "." : "";
     $("shareInvite").hidden = !navigator.share;
   });
-  $("saveSettings").addEventListener("click", () => { lsSet(KEY_LS, $("setKey").value.trim()); lsSet(MODEL_LS, $("setModel").value.trim()); });
+  $("saveSettings").addEventListener("click", () => {
+    const hk = $("setHKey").value.trim(), dk = $("setKey").value.trim();
+    lsSet(KEY_LS, dk && dk !== hk ? dk : ""); lsSet(MODEL_LS, $("setModel").value.trim());
+    if (backend && backend.saveGemini && hk !== householdKey()) backend.saveGemini(hk);
+  });
   $("copyInvite").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(inviteUrl()); toast("Invite link copied"); }
     catch { $("inviteLink").select(); toast("Select and copy the link"); }
