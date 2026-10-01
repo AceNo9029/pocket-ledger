@@ -105,6 +105,7 @@ async function main() {
         members: [user.uid],
         personOf: { [user.uid]: "p1" },
         created: Date.now(),
+        joinUntil: Date.now() + 7 * 864e5,
         settings: { currency: "MVR", opening: 0, openingBy: { p1: 0, p2: 0 }, people: [{ id: "p1", name: n1 }, { id: "p2", name: n2 }] }
       });
       await linkUser(user, ref.id);
@@ -126,7 +127,7 @@ async function main() {
       start(user, code);
     } catch (e) {
       gateMsg("gSetupErr", e && e.code === "not-found" ? "No household has that code. Check it with your partner." :
-        e && e.code === "permission-denied" ? "That household can't take more people, or the code is wrong." :
+        e && e.code === "permission-denied" ? "This invite link has expired or the household is full. Ask your partner to tap Open invitations in Settings, then try again." :
         "Couldn't join. Check your connection and try again.");
       busy(b, false);
     }

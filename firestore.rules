@@ -16,10 +16,12 @@ service cloud.firestore {
       allow create: if signedIn() && request.resource.data.members == [request.auth.uid];
       // Only members can see it.
       allow read: if signedIn() && request.auth.uid in resource.data.members;
-      // Members can change it. Someone with the invite code can only add themselves (max 4 people).
+      // Members can change it. Someone with the invite link can only add themselves,
+      // and only while invitations are open (joinUntil is in the future), max 4 people.
       allow update: if signedIn() && (
         request.auth.uid in resource.data.members ||
         (
+          resource.data.get('joinUntil', 0) > request.time.toMillis() &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'personOf']) &&
           request.resource.data.members.toSet() == resource.data.members.toSet().union([request.auth.uid].toSet()) &&
           request.resource.data.personOf.diff(resource.data.personOf).affectedKeys().hasOnly([request.auth.uid]) &&

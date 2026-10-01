@@ -439,6 +439,8 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       <p class="hint" id="hhInfo" style="margin:0"></p>
       <div class="field"><label for="inviteLink">Invite link for your partner</label><input id="inviteLink" readonly></div>
       <div class="formfoot"><button class="ghost" id="copyInvite" type="button">Copy link</button><button class="ghost" id="shareInvite" type="button" hidden>Share</button></div>
+      <p class="hint" style="margin:0" id="joinState"></p>
+      <div class="formfoot"><button class="ghost" id="joinOpen" type="button">Open invitations for 7 days</button><button class="ghost" id="joinClose" type="button">Close invitations</button></div>
     </div>
     <div class="setsec">
       <h3>Account</h3>
@@ -711,7 +713,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
 
   // ---------- backends ----------
   // ---------- Firebase (shared household data) ----------
-  let household = null, fbctx = null;
+  let household = null, fbctx = null, joinAutoSet = false;
   const validId = id => /^[A-Za-z0-9_-]{1,100}$/.test(String(id || ""));
   function firebaseBackend(fb) {
     const { F, db, hid } = fb;
@@ -730,6 +732,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
         household = s.data();
         state.settings = Object.assign({ currency: "MVR", opening: 0 }, JSON.parse(JSON.stringify(household.settings || {})));
         fmtCache = {};
+        if (household.joinUntil === undefined && (household.members || []).length < 2 && !joinAutoSet) { joinAutoSet = true; fire(F.updateDoc(hh, { joinUntil: Date.now() + 7 * 864e5 })); }
         if (!viewChosen) { const mine = (household.personOf || {})[fb.user.uid]; if (mine) ui.view = mine; viewChosen = true; }
       }
       settle("h");
@@ -747,6 +750,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       saveGoal: (id, g) => fire(F.setDoc(id ? F.doc(G, id) : F.doc(G), clean(g))),
       removeGoal: id => fire(F.deleteDoc(F.doc(G, id))),
       saveSettings: st => fire(F.updateDoc(hh, { settings: clean(Object.assign({}, state.settings, st)) })),
+      setJoinUntil: ms => fire(F.updateDoc(hh, { joinUntil: ms })),
       saveGemini: key => fire(F.updateDoc(hh, { gemini: { key: key || "" } })),
       replaceAll: async d => {
         const inE = (d.entries || []).map(e => Object.assign({ person: "p1" }, e));
@@ -758,8 +762,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
         inG.forEach(g => ops.push(b => b.set(validId(g.id) ? F.doc(G, g.id) : F.doc(G), clean(g))));
         inE.forEach(e => ops.push(b => b.set(validId(e.id) ? F.doc(E, e.id) : F.doc(E), clean(e))));
         ["recurring", "loans", "settlements"].forEach(col => {
-          const C = F.collection(hh, col), incoming = Array.isArray(d[col]) ? d[col] : null;
-          if (!incoming) return;
+          const C = F.collection(hh, col), incoming = Array.isArray(d[col]) ? d[col] : [];
           const keep = new Set(incoming.filter(x => validId(x.id)).map(x => x.id));
           (state[col] || []).forEach(x => { if (!keep.has(x.id)) ops.push(b => b.delete(F.doc(C, x.id))); });
           incoming.forEach(x => ops.push(b => b.set(validId(x.id) ? F.doc(C, x.id) : F.doc(C), clean(x))));
@@ -1744,7 +1747,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
 
   // ---------- share a screenshot into the app ----------
   async function takeSharedFiles() {
-    if (!/[?&]shared=1/.test(location.search)) return;
+    if (!/[?&]shared=1/.test(location.search)) { try { if (window.caches) caches.delete("pl-share"); } catch {} return; }
     history.replaceState(null, "", location.pathname);
     try {
       const c = await caches.open("pl-share"); const keys = await c.keys(); const files = [];
@@ -1764,7 +1767,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   let lockedAt = 0, pinBuf = "";
   function showLock() {
     const cfg = lockCfg(); if (!cfg) return;
-    pinBuf = ""; $("lockDots").textContent = ""; $("lockErr").hidden = true;
+    pinBuf = ""; $("lockDots").textContent = ""; $("lockErr").hidden = true; $("lockErr").textContent = "That PIN isn't right.";
     $("lockBio").hidden = !cfg.cred; $("lock").hidden = false;
     if (cfg.cred) setTimeout(tryBio, 250);
   }
@@ -1773,7 +1776,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     try {
       await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), allowCredentials: [{ type: "public-key", id: unb64(cfg.cred) }], userVerification: "required", timeout: 60000 } });
       $("lock").hidden = true;
-    } catch {}
+    } catch { $("lockErr").textContent = "Fingerprint didn't work. Enter your PIN instead."; $("lockErr").hidden = false; }
   }
   $("lockPad").addEventListener("click", async ev => {
     const b = ev.target.closest("button"); if (!b) return;
@@ -1783,7 +1786,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     $("lockDots").textContent = "•".repeat(pinBuf.length);
     const cfg = lockCfg();
     if (cfg && pinBuf.length >= 4 && await hashPin(pinBuf, cfg.salt) === cfg.hash) { $("lock").hidden = true; pinBuf = ""; }
-    else if (cfg && pinBuf.length >= 8) { $("lockErr").hidden = false; pinBuf = ""; $("lockDots").textContent = ""; }
+    else if (cfg && pinBuf.length >= 8) { $("lockErr").textContent = "That PIN isn't right."; $("lockErr").hidden = false; pinBuf = ""; $("lockDots").textContent = ""; }
   });
   $("lockBio").addEventListener("click", tryBio);
   document.addEventListener("visibilitychange", () => {
@@ -2146,7 +2149,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     if (!speakOn() || !window.speechSynthesis) return;
     try {
       const plain = String(text).replace(/\*\*/g, "").replace(/^\s*[-•]\s+/gm, "").replace(/MVR\s?/g, "rufiyaa ").slice(0, 600);
-      const u = new SpeechSynthesisUtterance(plain); u.rate = 1.05; speechSynthesis.cancel(); speechSynthesis.speak(u);
+      const u = new SpeechSynthesisUtterance(plain); u.rate = 1.05; speechSynthesis.cancel(); setTimeout(() => { try { speechSynthesis.speak(u); } catch {} }, 60);
     } catch {}
   }
 
@@ -2282,6 +2285,16 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     pickColor[b.dataset.p] = b.dataset.c; renderPcolors();
   }));
   $("settingsBtn").addEventListener("click", () => { pickColor.p1 = pickColor.p2 = null; syncAppearance(); renderPcolors(); });
+
+  // ---------- invitations open / closed ----------
+  function renderJoin() {
+    const until = household && household.joinUntil || 0, open = until > Date.now();
+    $("joinState").textContent = open ? "The invite link works until " + new Date(until).toLocaleDateString(undefined, { day: "numeric", month: "short" }) + ". Close invitations once your partner has joined." : "Invitations are closed, so the link above doesn't let anyone join. Open them only when someone needs to join.";
+    $("joinOpen").hidden = open; $("joinClose").hidden = !open;
+  }
+  $("settingsBtn").addEventListener("click", renderJoin);
+  $("joinOpen").addEventListener("click", () => { backend.setJoinUntil(Date.now() + 7 * 864e5); household.joinUntil = Date.now() + 7 * 864e5; renderJoin(); toast("Invitations open for 7 days"); });
+  $("joinClose").addEventListener("click", () => { backend.setJoinUntil(0); household.joinUntil = 0; renderJoin(); toast("Invitations closed"); });
 })();
 </script>
 <script type="module" src="app.js"></script>
