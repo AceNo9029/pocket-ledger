@@ -521,7 +521,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       <h3>Gemini (scanning and chat)</h3>
       <div class="srv"><p class="hint" style="margin:0" id="srvState"></p><div class="row-btns"><button class="ghost" type="button" id="srvOn">Use the secure server</button><button class="ghost" type="button" id="srvOff" hidden>Stop using the server</button></div></div>
       <div class="field" id="hkeyField"><label for="setHKey">Gemini key for the household</label><input id="setHKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key from Google AI Studio"></div>
-      <p class="hint" style="margin:0">Saved with your household's data, so everyone in the household can scan and chat without their own key. Everyone in the household can see it. Get one at aistudio.google.com, then Get API key.</p>
+      <p class="hint" style="margin:0" id="hkeyHint">Saved with your household's data, so everyone in the household can scan and chat without their own key. Everyone in the household can see it. Get one at aistudio.google.com, then Get API key.</p>
       <details class="box"><summary>Advanced</summary><div><div class="field"><label for="setKey">Use a different key on this device (optional)</label><input id="setKey" type="password" autocomplete="off" spellcheck="false" placeholder="Leave empty to use the household key"></div><div class="field"><label for="setModel">Gemini model</label><input id="setModel" spellcheck="false" placeholder="Automatic (gemini-3.8-flash)"></div></div></details>
     </div>
     <div class="setsec">
@@ -817,7 +817,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   const pcolor = id => (people().find(p => p.id === id) || {}).color || (id === "p2" ? PCOLORS[1] : PCOLORS[0]);
   const pickColor = { p1: null, p2: null };
   const last4 = v => String(v || "").split(/[,\s]+/).map(x => x.replace(/\D/g, "").slice(-4)).filter(x => x.length === 4).join(", ");
-  const poss = id => { const n = pname(id); return /^me$/i.test(n) ? "your" : n + "'s"; };
+  const poss = id => { const n = pname(id); return isMine(id) || /^me$/i.test(n) ? "your" : n + "'s"; };
   const viewEntries = () => isHouse() ? state.entries : state.entries.filter(e => e.person === ui.view);
   const visibleGoals = who => { who = who || ui.view; return who === "all" ? state.goals : state.goals.filter(g => g.owner === who || g.owner === "shared"); };
   const entryWho = () => isHouse() ? ($("fWho").value || "p1") : ui.view;
@@ -946,7 +946,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     $("monthLabel").textContent = monthName(ui.month);
     $("who").innerHTML = people().map(x => `<button data-view="${x.id}" aria-pressed="${ui.view === x.id}"><i class="pdot" style="background:${pcolor(x.id)}"></i>${esc(x.name)}</button>`).join("") +
       `<button class="house" data-view="all" aria-pressed="${isHouse()}">Household</button>`;
-    $("heroLabel").textContent = (isHouse() ? "Household" : pname(ui.view)) + " · left to spend this month";
+    $("heroLabel").textContent = isHouse() ? "Household · left to spend this month" : isMine(ui.view) ? "Left to spend this month" : pname(ui.view) + " · left to spend this month";
     $("modeNote").textContent = !backend ? "" : navigator.onLine ? "Synced" : "Offline · changes will sync";
     $("readonlyBanner").hidden = !readOnly;
     $("sampleBanner").hidden = readOnly || !(state.entries.some(e => e.sample) || state.goals.some(g => g.sample));
@@ -1010,7 +1010,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     es.sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.created || 0) - (a.created || 0));
     if (!es.length) {
       if (ui.search) { list.innerHTML = `<li class="empty"><span>Nothing matches "${esc(ui.search)}".</span></li>`; return; }
-      list.innerHTML = `<li class="empty"><span>${ui.filter === "all" ? "Nothing logged " + (isHouse() ? "" : "for " + esc(pname(ui.view)) + " ") + "in " + esc(monthName(ui.month)) + " yet." : "No entries of this kind this month."}</span><span class="hint">Use the form to add your income first, then each thing you spend.</span></li>`;
+      list.innerHTML = `<li class="empty"><span>${ui.filter === "all" ? "Nothing logged " + (isHouse() || isMine(ui.view) ? "" : "for " + esc(pname(ui.view)) + " ") + "in " + esc(monthName(ui.month)) + " yet." : "No entries of this kind this month."}</span><span class="hint">Use the form to add your income first, then each thing you spend.</span></li>`;
       return;
     }
     const goalName = id => (state.goals.find(g => g.id === id) || {}).name;
@@ -1811,7 +1811,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     const box = $("budgetList");
     if (ui.editBudgets) {
       const all = [...new Set(EXP_CATS.filter(c => c !== LOAN_OUT).concat(state.entries.filter(e => e.type === "expense").map(e => e.category).filter(c => c && c !== LOAN_OUT && c !== LOAN_BACK_OUT)))];
-      box.innerHTML = `<p class="hint" style="margin:0">Monthly limits for ${esc(isHouse() ? "the household" : pname(ui.view))}. Leave empty for no limit.</p>` +
+      box.innerHTML = `<p class="hint" style="margin:0">Monthly limits for ${esc(isHouse() ? "the household" : isMine(ui.view) ? "you" : pname(ui.view))}. Leave empty for no limit.</p>` +
         all.map((c, i) => `<div class="bud-edit"><label for="bud${i}">${esc(c)}</label><input id="bud${i}" data-cat="${esc(c)}" type="number" inputmode="decimal" min="0" step="1" value="${b[c] || ""}" placeholder="No limit"></div>`).join("") +
         `<div class="formfoot"><button class="primary" type="button" id="budSave">Save budgets</button><button class="icon-btn" type="button" id="budCancel">Cancel</button></div>`;
       $("budSave").onclick = () => {
@@ -1867,7 +1867,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     svg += "</svg>";
     $("trendChart").innerHTML = svg;
     const tot = data.reduce((a, d) => ({ inc: a.inc + d.inc, out: a.out + d.out }), { inc: 0, out: 0 });
-    $("trendNote").textContent = (who === "all" ? "Household" : pname(who)) + " · 12 months: in " + money(tot.inc, { whole: true }) + ", out " + money(tot.out, { whole: true });
+    $("trendNote").textContent = (who === "all" ? "Household" : isMine(who) ? "You" : pname(who)) + " · 12 months: in " + money(tot.inc, { whole: true }) + ", out " + money(tot.out, { whole: true });
   }
   $("trendChart").addEventListener("click", ev => { const g = ev.target.closest("g.mon"); if (g) { ui.month = g.dataset.k; render(); } });
 
@@ -2469,6 +2469,8 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   // v10: counts-for-month, loans kept separate, bills & reminders,
   // dashboard tiles, dropdowns, font size, button labels, tidy entries.
   // ======================================================================
+  // is this person the one signed in on this phone?
+  function isMine(id) { return !!(fbctx && fbctx.user && household && (household.personOf || {})[fbctx.user.uid] === id); }
   function effMonth(e) { return e.countMonth || (e.date || "").slice(0, 7); }
   function countsMoney(e) {
     if (!e.loanId) return true;
@@ -2516,7 +2518,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     const t = ui.type;
     // save / withdraw goal picker with "something else"
     const sel = $("fGoal");
-    if (t === "save") { sel.insertAdjacentHTML("beforeend", `<option value="__other">Something else (write it)…</option>`); }
+    if (t === "save") { sel.insertAdjacentHTML("beforeend", `<option value="__other">Other</option>`); }
     if (ui.goalSel && [...sel.options].some(o => o.value === ui.goalSel)) sel.value = ui.goalSel;
     $("purposeRow").hidden = !(t === "save" && sel.value === "__other");
     $("goalLabel").textContent = t === "withdraw" ? "Take it from" : "Put it into";
@@ -2812,7 +2814,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     const on = serverAI();
     $("srvState").textContent = on ? "Gemini runs on your secure server for everyone in the household. No key is stored in the app." : "Optional: run Gemini on your secure server, so no key is stored in the app or on phones.";
     $("srvOn").hidden = on; $("srvOff").hidden = !on;
-    $("hkeyField").hidden = on;
+    $("hkeyField").hidden = on; $("hkeyHint").hidden = on;
   }
   $("srvOn").addEventListener("click", async () => {
     $("srvOn").disabled = true;
