@@ -264,7 +264,21 @@ async function main() {
   let started = false;
   function start(user, space, spaces, udata) {
     if (started) return; started = true;
-    $("gate").hidden = true;
+    // An older copy of the page (from the browser's cache) doesn't have the new screens: load it fresh once.
+    if (!$("app")) {
+      try { if (!sessionStorage.getItem("pl-fresh")) { sessionStorage.setItem("pl-fresh", "1"); location.reload(); return; } } catch {}
+    }
+    try { sessionStorage.removeItem("pl-fresh"); } catch {}
+    try {
+      bootApp(user, space, spaces, udata);
+      $("gate").hidden = true;
+    } catch (err) {
+      console.error(err); if ($("app")) $("app").hidden = true;
+      showGate("gLoading");
+      $("gLoadingMsg").innerHTML = "Pocket Ledger couldn't open. Close it completely and open it again.<br><small>" + String((err && err.message) || err).replace(/[<>&]/g, "") + "</small>";
+    }
+  }
+  function bootApp(user, space, spaces, udata) {
     boot({
       F, db, hid: space.id, space, spaces, profile: udata, user, app, sdk: SDK, admin: !!user.plAdmin,
       switchTo: id => { try { localStorage.setItem("pl-space-" + user.uid, id); } catch {} location.reload(); },

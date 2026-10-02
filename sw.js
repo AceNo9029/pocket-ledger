@@ -1,5 +1,5 @@
 // Pocket Ledger service worker: makes the app open offline and installable.
-const VERSION = "pl-v20";
+const VERSION = "pl-v21";
 const SHELL = ["./", "./index.html", "./app.js", "./config.js", "./manifest.webmanifest", "./css/app.css",
   "./js/main.js", "./js/util.js", "./js/store.js", "./js/actions.js", "./js/shell.js", "./js/gemini.js", "./js/scan.js", "./js/chat.js",
   "./js/lock.js", "./js/notify.js", "./js/backup.js",
@@ -35,7 +35,8 @@ self.addEventListener("fetch", e => {
   if (/googleapis\.com$|firebaseio\.com$|firebaseapp\.com$/.test(url.hostname) && url.hostname !== "fonts.googleapis.com") return;
   if (url.origin === location.origin) {
     // App files: try the network first so updates arrive, fall back to the saved copy offline.
-    e.respondWith(fetch(req).then(res => {
+    // "no-cache" makes the browser check with GitHub every time, so a new release never mixes with old files.
+    e.respondWith(fetch(req, { cache: "no-cache" }).then(res => {
       if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
       return res;
     }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match("./index.html"))));
