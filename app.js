@@ -179,13 +179,14 @@ async function main() {
   async function ensureAccess(user, code) {
     const a = await getSnap(F.doc(db, "access", user.uid));
     if (a && a.exists()) { const v = { admin: !!a.data().admin }; try { localStorage.setItem(accKey(user.uid), JSON.stringify(v)); } catch {} return v; }
-    try { const c = localStorage.getItem(accKey(user.uid)); if (c && !navigator.onLine) return JSON.parse(c); } catch {}
+    try { const c = localStorage.getItem(accKey(user.uid)); if (c && !navigator.onLine) return JSON.parse(c); localStorage.removeItem(accKey(user.uid)); } catch {}
     const r = await callAccess(code ? { code } : {});
     try { localStorage.setItem(accKey(user.uid), JSON.stringify({ admin: !!r.admin })); } catch {}
     return r;
   }
   const accessMsg = e => {
     const m = String((e && e.message) || ""), c = String((e && e.code) || "").replace("functions/", "");
+    if (/removed/.test(m)) return "Your access to Pocket Ledger was removed. Ask the person who invited you if this is a mistake.";
     if (c === "permission-denied" || /invite-needed/.test(m)) return "";
     if (c === "not-found") return "That invite code isn't valid. Check it and try again.";
     if (c === "failed-precondition") return m || "That invite can't be used any more. Ask for a new one.";
@@ -209,7 +210,7 @@ async function main() {
       catch (e) {
         const msg = accessMsg(e);
         // server not reachable / not set up yet: people who already use the app carry on (the database rules still decide)
-        if (msg && !inviteFromUrl) {
+        if (msg && !inviteFromUrl && !/removed/.test(String(e && e.message))) {
           const us0 = await getSnap(U(user.uid)); const d0 = us0 && us0.exists() ? us0.data() : {};
           if (d0.personal || d0.household) return enter(user, true);
         }

@@ -7,6 +7,7 @@
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { getAuth } = require("firebase-admin/auth");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { setGlobalOptions } = require("firebase-functions/v2");
@@ -91,6 +92,7 @@ exports.access = onCall(async req => {
   const aRef = db.doc("access/" + uid);
   const a = await aRef.get();
   if (a.exists) return { ok: true, admin: !!a.data().admin };
+  if ((await db.doc("revoked/" + uid).get()).exists) throw new HttpsError("permission-denied", "removed");
   const u = await db.doc("users/" + uid).get();
   const ud = u.exists ? u.data() : {};
   if (ud.personal || ud.household) {
@@ -122,6 +124,100 @@ exports.access = onCall(async req => {
   return { ok: true, admin: false, group };
 });
 
+// ---------- admin dashboard ----------
+// Only people the admin flag is set for. Shows who uses the app and how much
+// Gemini they use. Never returns anyone's money data.
+let cfgCache = null, cfgAt = 0;
+async function appConfig() {
+  if (cfgCache && Date.now() - cfgAt < 5 * 60e3) return cfgCache;
+  const s = await db.doc("config/app").get();
+  cfgCache = s.exists ? s.data() : {}; cfgAt = Date.now(); return cfgCache;
+}
+exports.admin = onCall(async req => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const uid = req.auth.uid;
+  const mine = await db.doc("access/" + uid).get();
+  if (!mine.exists || !mine.data().admin) throw new HttpsError("permission-denied", "Only the app's admin can do that.");
+  const { action, target } = req.data || {};
+  const auth = getAuth();
+  const needTarget = () => { if (!target || typeof target !== "string") throw new HttpsError("invalid-argument", "Pick someone first."); if (target === uid) throw new HttpsError("failed-precondition", "You can't do that to your own account."); };
+
+  if (action === "overview") {
+    const today = localToday(new Date(), 5);
+    const since = new Date(Date.now() - 29 * 864e5 + 5 * 3600e3).toISOString().slice(0, 10);
+    const [acc, usage, invites, cfg, rev] = await Promise.all([
+      db.collection("access").get(),
+      db.collection("aiUsage").where("day", ">=", since).get(),
+      db.collection("invites").get(),
+      appConfig(),
+      db.collection("revoked").get()
+    ]);
+    const ids = acc.docs.map(d => d.id);
+    const users = ids.length ? await db.getAll(...ids.map(id => db.doc("users/" + id))) : [];
+    const udata = {}; users.forEach(u => { udata[u.id] = u.exists ? u.data() : {}; });
+    const authInfo = {};
+    for (let i = 0; i < ids.length; i += 100) {
+      const r = await auth.getUsers(ids.slice(i, i + 100).map(id => ({ uid: id })));
+      r.users.forEach(u => { authInfo[u.uid] = { disabled: u.disabled, lastSignIn: u.metadata.lastSignInTime || null, created: u.metadata.creationTime || null }; });
+    }
+    const perDay = {}, perUser = {};
+    usage.docs.forEach(d => { const x = d.data(); perDay[x.day] = (perDay[x.day] || 0) + (x.n || 0); const p = perUser[x.uid] || (perUser[x.uid] = { today: 0, month: 0 }); p.month += x.n || 0; if (x.day === today) p.today += x.n || 0; });
+    const days = []; for (let i = 29; i >= 0; i--) { const k = new Date(Date.now() - i * 864e5 + 5 * 3600e3).toISOString().slice(0, 10); days.push({ day: k, n: perDay[k] || 0 }); }
+    const people = acc.docs.map(d => { const a = d.data(), u = udata[d.id] || {}, au = authInfo[d.id] || {}; return {
+      uid: d.id, email: a.email || u.email || "", name: u.name || "", admin: !!a.admin, how: a.how || "", since: a.since || null, revoked: !!a.revoked,
+      lastSeen: u.lastSeen || null, lastSignIn: au.lastSignIn || null, disabled: !!au.disabled, groups: (u.spaces || []).length,
+      aiToday: (perUser[d.id] || {}).today || 0, aiMonth: (perUser[d.id] || {}).month || 0 }; });
+    // accounts that signed up but never got in (no invite)
+    const waiting = []; const have = new Set(ids);
+    const list = await auth.listUsers(1000);
+    list.users.forEach(u => { if (!have.has(u.uid)) waiting.push({ uid: u.uid, email: u.email || "", created: u.metadata.creationTime || null }); });
+    const openInvites = invites.docs.filter(d => { const i = d.data(); return (i.expires || 0) > Date.now() && (i.used || []).length < (i.max || 1); }).length;
+    const revoked = rev.docs.map(d => ({ uid: d.id, email: d.data().email || "", name: d.data().name || "", revokedAt: d.data().revokedAt || null }));
+    revoked.forEach(r => have.add(r.uid));
+    const waiting2 = waiting.filter(w => !have.has(w.uid));
+    return { people, waiting: waiting2, revoked, days, today, limit: cfg.aiLimit || DAILY_AI_LIMIT, openInvites };
+  }
+  if (action === "revoke") {
+    needTarget();
+    const ref = db.doc("access/" + target), a = await ref.get();
+    if (!a.exists) throw new HttpsError("not-found", "That person doesn't have access.");
+    const tu = await db.doc("users/" + target).get();
+    await db.doc("revoked/" + target).set(Object.assign({}, a.data(), { name: (tu.exists && tu.data().name) || "", revokedAt: Date.now(), revokedBy: uid }));
+    await ref.delete();
+    try { await auth.updateUser(target, { disabled: true }); await auth.revokeRefreshTokens(target); } catch (e) { logger.warn("disable failed", e); }
+    return { ok: true };
+  }
+  if (action === "restore") {
+    needTarget();
+    const old = await db.doc("revoked/" + target).get();
+    const base = old.exists ? old.data() : {};
+    await db.doc("access/" + target).set({ ok: true, email: base.email || "", admin: false, since: base.since || Date.now(), how: base.how || "restored", restoredAt: Date.now() });
+    await db.doc("revoked/" + target).delete();
+    try { await auth.updateUser(target, { disabled: false }); } catch (e) { logger.warn("enable failed", e); }
+    return { ok: true };
+  }
+  if (action === "makeAdmin" || action === "removeAdmin") {
+    needTarget();
+    const ref = db.doc("access/" + target);
+    if (!(await ref.get()).exists) throw new HttpsError("not-found", "That person doesn't have access.");
+    await ref.update({ admin: action === "makeAdmin" });
+    return { ok: true };
+  }
+  if (action === "deleteWaiting") {
+    needTarget();
+    if ((await db.doc("access/" + target).get()).exists) throw new HttpsError("failed-precondition", "That person has access. Remove their access instead.");
+    await auth.deleteUser(target);
+    return { ok: true };
+  }
+  if (action === "setLimit") {
+    const n = Math.round(+((req.data || {}).limit));
+    if (!(n >= 10 && n <= 2000)) throw new HttpsError("invalid-argument", "Pick a limit between 10 and 2000.");
+    await db.doc("config/app").set({ aiLimit: n }, { merge: true }); cfgCache = null;
+    return { ok: true, limit: n };
+  }
+  throw new HttpsError("invalid-argument", "Unknown action.");
+});
+
 // ---------- Gemini, with the key kept on the server ----------
 exports.gemini = onCall({ secrets: [GEMINI_KEY], timeoutSeconds: 120, memory: "512MiB" }, async req => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
@@ -137,7 +233,8 @@ exports.gemini = onCall({ secrets: [GEMINI_KEY], timeoutSeconds: 120, memory: "5
     const s = await t.get(usage); const n = (s.exists ? s.data().n : 0) + 1;
     t.set(usage, { n, uid, day }, { merge: true }); return n;
   });
-  if (used > DAILY_AI_LIMIT) throw new HttpsError("resource-exhausted", "Daily Gemini limit reached. It resets tomorrow.");
+  const limit = (await appConfig()).aiLimit || DAILY_AI_LIMIT;
+  if (used > limit) throw new HttpsError("resource-exhausted", "Daily Gemini limit reached. It resets tomorrow.");
 
   const { contents, generationConfig, model } = req.data || {};
   if (!Array.isArray(contents) || !contents.length) throw new HttpsError("invalid-argument", "Nothing to send.");
