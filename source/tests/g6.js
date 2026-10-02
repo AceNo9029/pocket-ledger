@@ -1,0 +1,31 @@
+const { chromium } = require('playwright'); const fs = require('fs');
+(async () => {
+  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 412, height: 900 } });
+  await ctx.route('https://www.gstatic.com/firebasejs/**', r => r.fulfill({ status: 200, contentType: 'application/javascript', body: fs.readFileSync('/tmp/mockfb/' + r.request().url().split('/').pop()) }));
+  await ctx.route('https://fonts.googleapis.com/**', r => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() !== 'log') errs.push('console: ' + m.text()); });
+  await p.goto('http://localhost:8765/'); await p.waitForTimeout(300);
+  const st = JSON.parse(fs.readFileSync('/tmp/g_state2.json'));
+  for (let i = 0; i < 30; i += 2) { const d = new Date(Date.now() - i * 864e5).toISOString().slice(0, 10); st['aiUsage/uid_farisxcom_' + d] = { n: 3 + (i * 7) % 20, uid: 'uid_farisxcom', day: d }; if (i % 4 === 0) st['aiUsage/uid_sulxcom_' + d] = { n: 5, uid: 'uid_sulxcom', day: d }; }
+  await p.evaluate(s => { localStorage.clear(); localStorage.setItem('mock-db', JSON.stringify(s)); localStorage.setItem('mock-users', JSON.stringify({ 'faris@x.com': 'secret12', 'sul@x.com': 'secret12', 'eve@x.com': 'secret12' })); }, st);
+  const login = async email => { await p.evaluate(e => { localStorage.setItem('mock-cur', e); }, email); await p.goto('http://localhost:8765/'); await p.waitForTimeout(1500); };
+  await login('sul@x.com'); console.log('Sul sees admin btn:', await p.isVisible('#adminBtn'));
+  await login('faris@x.com'); console.log('Faris sees admin btn:', await p.isVisible('#adminBtn'));
+  await p.click('#adminBtn'); await p.waitForTimeout(800);
+  console.log((await p.innerText('#adminBody')).replace(/\n+/g, ' / '));
+  await p.screenshot({ path: '/tmp/admin1.png', fullPage: false });
+  await p.click('.ad-hit[data-i="29"]'); console.log('tip:', await p.textContent('#adTip'));
+  await p.click('[data-adask="revoke"][data-u="uid_sulxcom"]'); await p.waitForTimeout(200);
+  await p.click('[data-adgo="uid_sulxcom"]'); await p.waitForTimeout(800);
+  console.log('after revoke:', (await p.innerText('#adminBody')).split('Removed')[1].replace(/\n+/g, ' / ').slice(0, 200));
+  await p.fill('#adLimit', '150'); await p.click('[data-adlimit]'); await p.waitForTimeout(500);
+  console.log('limit:', await p.inputValue('#adLimit'));
+  const s2 = await p.evaluate(() => JSON.parse(localStorage.getItem('mock-db')));
+  await login('sul@x.com'); await p.waitForTimeout(500);
+  console.log('Sul after revoke:', await p.evaluate(() => ['gLoading', 'gSignin', 'gInvite', 'gSetup'].filter(v => !document.getElementById(v).hidden).join(',') + ' gate:' + !document.getElementById('gate').hidden), await p.textContent('#gInviteErr'));
+  await login('faris@x.com'); await p.click('#adminBtn'); await p.waitForTimeout(800);
+  await p.click('[data-adact="restore"]'); await p.waitForTimeout(800);
+  console.log('restored people:', await p.$$eval('#adminBody .grp b', b => b.map(x => x.textContent)));
+  await p.setViewportSize({ width: 412, height: 1400 }); await p.evaluate(() => document.getElementById('adminPanel').scrollIntoView()); await p.screenshot({ path: '/tmp/admin2.png' });
+  console.log('errors:', errs); await b.close();
+})();

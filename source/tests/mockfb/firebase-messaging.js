@@ -1,0 +1,1 @@
+export const isSupported = async () => true; export const getMessaging = () => ({}); export const getToken = async () => "tok-123"; export const onMessage = () => {};
