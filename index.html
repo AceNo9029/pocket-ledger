@@ -263,6 +263,19 @@ body .wrap { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 #fCat:not([hidden]) { margin-top: 6px; }
 .srv { display: grid; gap: 8px; background: var(--sunk); border-radius: 10px; padding: 10px 12px; }
 * { box-sizing: border-box; }
+.spacebar { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 8px; scrollbar-width: none; }
+.spacebar[hidden] { display: none; }
+.spacebar button { flex: none; border: 1px solid var(--line, #ccc); background: transparent; color: inherit; border-radius: 999px; padding: 7px 14px; font: inherit; font-size: .9em; cursor: pointer; }
+.spacebar button[aria-pressed="true"] { background: var(--accent, #0B5F57); border-color: var(--accent, #0B5F57); color: var(--accent-ink, #fff); font-weight: 600; }
+.by-tag { opacity: .75; font-style: italic; }
+#owesBar { display: grid; gap: 8px; }
+#owesBar .owe-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.grp-list { display: grid; gap: 10px; }
+.grp { border: 1px solid var(--line, #ccc); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
+.grp-top { display: grid; gap: 2px; } .grp-top small { opacity: .75; }
+.grp-rename { display: flex; gap: 8px; } .grp-rename input { flex: 1; min-width: 0; }
+.priv-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#reqBar { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 html { color-scheme: light; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
@@ -444,6 +457,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
 <div class="wrap">
   <header class="top">
     <div class="brand"><h1>Pocket Ledger</h1><span id="modeNote"></span></div>
+    <nav class="spacebar" id="spaceBar" aria-label="Your spaces" hidden></nav>
     <div class="who" id="who" role="group" aria-label="Whose money"></div>
     <div class="monthnav" role="group" aria-label="Month">
       <button id="prevM" aria-label="Previous month">‹</button>
@@ -536,13 +550,23 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       <p class="hint" style="margin:0">Your choices apply to all your devices. Alerts are checked every morning at 8:30.</p>
     </div>
     <div><button class="primary" id="saveSettings">Save settings</button></div>
-    <div class="setsec">
-      <h3>Household</h3>
-      <p class="hint" id="hhInfo" style="margin:0"></p>
-      <div class="field"><label for="inviteLink">Invite link for your partner</label><input id="inviteLink" readonly></div>
-      <div class="formfoot"><button class="ghost" id="copyInvite" type="button">Copy link</button><button class="ghost" id="shareInvite" type="button" hidden>Share</button></div>
-      <p class="hint" style="margin:0" id="joinState"></p>
-      <div class="formfoot"><button class="ghost" id="joinOpen" type="button">Open invitations for 7 days</button><button class="ghost" id="joinClose" type="button">Close invitations</button></div>
+    <div class="setsec" id="grpSec">
+      <h3>Groups</h3>
+      <p class="hint" id="grpInfo" style="margin:0"></p>
+      <div id="grpList" class="grp-list"></div>
+      <details class="box"><summary>Start a new group</summary><div>
+        <div class="field"><label for="grpNewName">Group name</label><input id="grpNewName" maxlength="30" placeholder="e.g. Household, Bali trip"></div>
+        <div><button class="ghost" id="grpCreate" type="button">Create group</button></div>
+      </div></details>
+      <details class="box"><summary>Join a group</summary><div>
+        <div class="field"><label for="grpJoinCode">Invite link or code</label><input id="grpJoinCode" autocomplete="off" spellcheck="false"></div>
+        <div><button class="ghost" id="grpJoin" type="button">Join</button></div>
+      </div></details>
+    </div>
+    <div class="setsec" id="privSec">
+      <h3>Privacy</h3>
+      <p class="hint" style="margin:0">Your own entries (in Me) are private. Only people you allow can see them, and they can never change anything.</p>
+      <div id="privList" class="grp-list"></div>
     </div>
     <div class="setsec">
       <h3>Account</h3>
@@ -552,6 +576,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   </section>
 
   <div class="bills-bar" id="dueBar" hidden></div>
+  <div class="banner info" id="reqBar" hidden></div>
   <div class="banner info" id="owesBar" hidden></div>
   <section class="summary" aria-label="This month">
     <div class="dash-head"><span class="label">Dashboard</span><button class="icon-btn" type="button" id="tileBtn">Customize</button></div>
@@ -748,7 +773,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
 </div>
 <div class="gate" id="gate">
   <div class="gate-card">
-    <div class="gate-brand"><img src="icons/icon-192.png" alt="" width="48" height="48"><div><h1>Pocket Ledger</h1><span>Household money, together</span></div></div>
+    <div class="gate-brand"><img src="icons/icon-192.png" alt="" width="48" height="48"><div><h1>Pocket Ledger</h1><span>Your money, and what you share</span></div></div>
 
     <div id="gLoading"><p class="muted" id="gLoadingMsg"><span class="spin" aria-hidden="true"></span>Opening…</p></div>
 
@@ -768,18 +793,11 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     <div id="gSetup" hidden>
       <p class="muted">Signed in as <b id="gWho"></b></p>
       <section class="gate-sec">
-        <h2>Join your partner</h2>
-        <p class="hint">If your partner already set up Pocket Ledger, paste the invite link or code from their Settings.</p>
-        <div class="field"><label for="gJoinCode">Invite link or code</label><input id="gJoinCode" autocomplete="off" spellcheck="false"></div>
-        <button class="primary" type="button" id="gJoinHH">Join household</button>
-      </section>
-      <section class="gate-sec">
-        <h2>Or start a new household</h2>
-        <div class="row2">
-          <div class="field"><label for="gName1">Your name</label><input id="gName1" maxlength="20" placeholder="Me"></div>
-          <div class="field"><label for="gName2">Partner's name</label><input id="gName2" maxlength="20" placeholder="My wife"></div>
-        </div>
-        <button class="ghost" type="button" id="gCreateHH">Start a new household</button>
+        <h2>Welcome to Pocket Ledger</h2>
+        <p class="hint">Your own entries are private to you. You can share costs with others in groups later.</p>
+        <div class="field"><label for="gMyName">Your name</label><input id="gMyName" maxlength="20" placeholder="e.g. Faris" autocomplete="given-name"></div>
+        <div class="field"><label for="gJoinCode">Invite link or code (optional)</label><input id="gJoinCode" autocomplete="off" spellcheck="false" placeholder="Only if someone invited you to their group"></div>
+        <button class="primary" type="button" id="gContinue">Continue</button>
       </section>
       <div class="err" id="gSetupErr" hidden></div>
       <button class="linkish" type="button" id="gSignout">Use a different account</button>
@@ -814,13 +832,13 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   const pname = id => id === "shared" ? "Shared" : ((people().find(x => x.id === id) || {}).name || "Someone");
   const isHouse = () => ui.view === "all";
   const PCOLORS = ["#2F6FD6", "#9B4F96", "#0E8A7D", "#C9821B", "#4C9A2A", "#D0526E"];
-  const pcolor = id => (people().find(p => p.id === id) || {}).color || (id === "p2" ? PCOLORS[1] : PCOLORS[0]);
+  const pcolor = id => (people().find(p => p.id === id) || {}).color || PCOLORS[Math.max(0, people().findIndex(p => p.id === id)) % PCOLORS.length];
   const pickColor = { p1: null, p2: null };
   const last4 = v => String(v || "").split(/[,\s]+/).map(x => x.replace(/\D/g, "").slice(-4)).filter(x => x.length === 4).join(", ");
   const poss = id => { const n = pname(id); return isMine(id) || /^me$/i.test(n) ? "your" : n + "'s"; };
   const viewEntries = () => isHouse() ? state.entries : state.entries.filter(e => e.person === ui.view);
   const visibleGoals = who => { who = who || ui.view; return who === "all" ? state.goals : state.goals.filter(g => g.owner === who || g.owner === "shared"); };
-  const entryWho = () => isHouse() ? ($("fWho").value || "p1") : ui.view;
+  const entryWho = () => spaceMode() ? meId() : isHouse() ? ($("fWho").value || "p1") : ui.view;
   let backend = null; // {kind, add, update, remove, saveGoal, removeGoal, saveSettings}
   let readOnly = false;
 
@@ -853,26 +871,26 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   function firebaseBackend(fb) {
     const { F, db, hid } = fb;
     const hh = F.doc(db, "households", hid), E = F.collection(hh, "entries"), G = F.collection(hh, "goals");
-    const clean = o => { const c = JSON.parse(JSON.stringify(o)); delete c.id; return c; };
+    const clean = o => { const c = JSON.parse(JSON.stringify(o)); delete c.id; c.author = c.author || fb.user.uid; return c; };
+    const cleanS = o => { const c = JSON.parse(JSON.stringify(o)); delete c.id; return c; };
     // Writes show up straight away and sync in the background (also offline),
     // so don't wait for the server here; report failures when they happen.
-    const fire = p => { p.catch(e => toast(e && e.code === "permission-denied" ? "You don't have access to this household any more." : "A change couldn't be saved. Check your connection.")); return Promise.resolve(); };
+    const fire = p => { p.catch(e => toast(e && e.code === "permission-denied" ? "Only the person who added that can change it." : "A change couldn't be saved. Check your connection.")); return Promise.resolve(); };
     const got = { e: false, g: false, h: false };
     const settle = k => { got[k] = true; if (got.e && got.g && got.h) state.ready = true; normalize(); render(); };
     const snapErr = e => { if (e && e.code === "permission-denied") { readOnly = true; render(); toast("You don't have access to this household."); } };
-    F.onSnapshot(E, s => { state.entries = s.docs.map(d => Object.assign({ id: d.id }, d.data())); settle("e"); }, snapErr);
-    F.onSnapshot(G, s => { state.goals = s.docs.map(d => Object.assign({ id: d.id }, d.data())); settle("g"); }, snapErr);
+    F.onSnapshot(E, s => { state.entries = legacyIds(s.docs.map(d => Object.assign({ id: d.id }, d.data()))); settle("e"); }, snapErr);
+    F.onSnapshot(G, s => { state.goals = legacyIds(s.docs.map(d => Object.assign({ id: d.id }, d.data()))); settle("g"); }, snapErr);
     F.onSnapshot(hh, s => {
       if (s.exists()) {
         household = s.data();
         state.settings = Object.assign({ currency: "MVR", opening: 0 }, JSON.parse(JSON.stringify(household.settings || {})));
         fmtCache = {};
-        if (household.joinUntil === undefined && (household.members || []).length < 2 && !joinAutoSet) { joinAutoSet = true; fire(F.updateDoc(hh, { joinUntil: Date.now() + 7 * 864e5 })); }
-        if (!viewChosen) { const mine = (household.personOf || {})[fb.user.uid]; if (mine) ui.view = mine; viewChosen = true; }
+        if (state.entries.length) state.entries = legacyIds(state.entries);
       }
       settle("h");
     }, snapErr);
-    const subCol = (name, key) => F.onSnapshot(F.collection(hh, name), q => { state[key] = q.docs.map(d => Object.assign({ id: d.id }, d.data())); render(); }, snapErr);
+    const subCol = (name, key) => F.onSnapshot(F.collection(hh, name), q => { state[key] = legacyIds(q.docs.map(d => Object.assign({ id: d.id }, d.data()))); render(); }, snapErr);
     subCol("recurring", "recurring"); subCol("loans", "loans"); subCol("settlements", "settlements");
     return {
       kind: "firebase",
@@ -884,12 +902,15 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       remove: id => fire(F.deleteDoc(F.doc(E, id))),
       saveGoal: (id, g) => fire(F.setDoc(id ? F.doc(G, id) : F.doc(G), clean(g))),
       removeGoal: id => fire(F.deleteDoc(F.doc(G, id))),
-      saveSettings: st => fire(F.updateDoc(hh, { settings: clean(Object.assign({}, state.settings, st)) })),
+      saveSettings: st => { const c = cleanS(Object.assign({}, state.settings, st)); if (household && household.type === "group") delete c.people; return fire(F.updateDoc(hh, { settings: c })); },
       setJoinUntil: ms => fire(F.updateDoc(hh, { joinUntil: ms })),
-      saveGemini: key => fire(F.updateDoc(hh, { gemini: { key: key || "" } })),
+      saveGemini: key => household && household.type === "group" && household.owner !== fb.user.uid ? Promise.resolve() : fire(F.updateDoc(hh, { gemini: { key: key || "" } })),
       replaceAll: async d => {
-        const inE = (d.entries || []).map(e => Object.assign({ person: "p1" }, e));
-        const inG = (d.goals || []).map(g => Object.assign({ owner: "p1" }, g));
+        if (household && household.type && household.type !== "personal") { toast("Restore a backup from your own space (Me), not from a group."); throw { code: "group" }; }
+        const me = meId();
+        const toMe = v => (!v || v === "p1" || v === "p2") ? me : v;
+        const inE = (d.entries || []).map(e => Object.assign({}, e, { person: toMe(e.person), author: me }));
+        const inG = (d.goals || []).map(g => Object.assign({}, g, { owner: g.owner === "shared" ? "shared" : toMe(g.owner), author: me }));
         const keepE = new Set(inE.filter(e => validId(e.id)).map(e => e.id)), keepG = new Set(inG.filter(g => validId(g.id)).map(g => g.id));
         const ops = [];
         state.entries.forEach(e => { if (!keepE.has(e.id)) ops.push(b => b.delete(F.doc(E, e.id))); });
@@ -897,7 +918,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
         inG.forEach(g => ops.push(b => b.set(validId(g.id) ? F.doc(G, g.id) : F.doc(G), clean(g))));
         inE.forEach(e => ops.push(b => b.set(validId(e.id) ? F.doc(E, e.id) : F.doc(E), clean(e))));
         ["recurring", "loans", "settlements"].forEach(col => {
-          const C = F.collection(hh, col), incoming = Array.isArray(d[col]) ? d[col] : [];
+          const C = F.collection(hh, col), incoming = (Array.isArray(d[col]) ? d[col] : []).map(x => Object.assign({}, x, x.person ? { person: toMe(x.person) } : {}, { author: me }));
           const keep = new Set(incoming.filter(x => validId(x.id)).map(x => x.id));
           (state[col] || []).forEach(x => { if (!keep.has(x.id)) ops.push(b => b.delete(F.doc(C, x.id))); });
           incoming.forEach(x => ops.push(b => b.set(validId(x.id) ? F.doc(C, x.id) : F.doc(C), clean(x))));
@@ -905,7 +926,9 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
         for (let i = 0; i < ops.length; i += 400) { const b = F.writeBatch(db); ops.slice(i, i + 400).forEach(f => f(b)); await b.commit(); }
         const st = Object.assign({ currency: "MVR", opening: 0 }, d.settings || {});
         if (!Array.isArray(st.people) || !st.people.length) st.people = (state.settings.people || DEFAULT_PEOPLE);
-        await F.updateDoc(hh, { settings: clean(st) });
+        st.people = [Object.assign({}, (state.settings.people || [])[0] || {}, { id: me })];
+        st.openingBy = { [me]: +((d.settings && d.settings.openingBy && (d.settings.openingBy[me] ?? d.settings.openingBy.p1)) || st.opening || 0) };
+        await F.updateDoc(hh, { settings: cleanS(st) });
       }
     };
   }
@@ -946,7 +969,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     $("monthLabel").textContent = monthName(ui.month);
     $("who").innerHTML = people().map(x => `<button data-view="${x.id}" aria-pressed="${ui.view === x.id}"><i class="pdot" style="background:${pcolor(x.id)}"></i>${esc(x.name)}</button>`).join("") +
       `<button class="house" data-view="all" aria-pressed="${isHouse()}">Household</button>`;
-    $("heroLabel").textContent = isHouse() ? "Household · left to spend this month" : isMine(ui.view) ? "Left to spend this month" : pname(ui.view) + " · left to spend this month";
+    $("heroLabel").textContent = isHouse() ? houseName() + " · left to spend this month" : isMine(ui.view) ? "Left to spend this month" : pname(ui.view) + " · left to spend this month";
     $("modeNote").textContent = !backend ? "" : navigator.onLine ? "Synced" : "Offline · changes will sync";
     $("readonlyBanner").hidden = !readOnly;
     $("sampleBanner").hidden = readOnly || !(state.entries.some(e => e.sample) || state.goals.some(g => g.sample));
@@ -968,7 +991,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
         const d = new Date(); const daysLeft = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() - d.getDate() + 1;
         extra = " · about " + money(t.left / daysLeft, { whole: true }) + " a day for the " + daysLeft + " day" + (daysLeft === 1 ? "" : "s") + " left";
       }
-      $("leftSub").textContent = pct + "% of " + (isHouse() ? "household" : poss(ui.view)) + " income is still free" + extra + ".";
+      $("leftSub").textContent = pct + "% of " + (isHouse() ? (isGroup() ? "the group's" : "household") : poss(ui.view)) + " income is still free" + extra + ".";
     }
     $("copyIncome").hidden = readOnly || hasIncome || !inMonth(shiftMonth(ui.month, -1)).some(e => e.type === "income");
 
@@ -1245,6 +1268,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   });
   $("closeSettings").addEventListener("click", () => $("settingsPanel").hidden = true);
   $("saveSettings").addEventListener("click", async () => {
+    if (spaceMode()) return saveMyDetails();
     const o1 = num($("setOpen1").value || "0"), o2 = num($("setOpen2").value || "0");
     if (!(o1 >= 0) || !(o2 >= 0)) return toast("Starting savings can't be negative.");
     const n1 = $("setName1").value.trim() || "Me", n2 = $("setName2").value.trim() || "My wife";
@@ -1319,7 +1343,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   // A key set on this device wins; otherwise the household's shared key.
   const householdKey = () => String((household && household.gemini && household.gemini.key) || "").trim();
   const geminiKey = () => lsGet(KEY_LS).trim() || householdKey();
-  const serverAI = () => !!(household && household.ai && household.ai.server);
+  const serverAI = () => !!(household && household.ai && household.ai.server) || (SP.spaces || []).some(s => s.ai);
   const aiReady = () => !!(geminiKey() || serverAI());
   let callableP = null;
   async function serverGemini(payload, signal) {
@@ -1707,42 +1731,40 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     if (!(amount > 0)) { $("loanErr").textContent = "Enter the amount."; $("loanErr").hidden = false; return; }
     if (!cp) { $("loanErr").textContent = "Who is it with?"; $("loanErr").hidden = false; return; }
     $("loanErr").hidden = true;
-    createLoan({ direction: $("lnDir").value, counterparty: cp, amount, date: $("lnDate").value || todayISO(), due: $("lnDue").value, person: isHouse() ? $("lnWho").value : ui.view, inMonth: $("lnInMonth").checked });
+    createLoan({ direction: $("lnDir").value, counterparty: cp, amount, date: $("lnDate").value || todayISO(), due: $("lnDue").value, person: spaceMode() ? meId() : isHouse() ? $("lnWho").value : ui.view, inMonth: $("lnInMonth").checked });
     $("lnInMonth").checked = false;
     ["lnAmt", "lnName", "lnDue"].forEach(id => $(id).value = ""); $("loanBox").open = false; toast("Loan saved");
   });
 
   // ---------- splitting shared costs ----------
-  function owesBalance() {
-    // positive => p2 owes p1
-    let bal = 0;
+  function owesPairs() {
+    // net amounts between each pair of people: who owes whom for shared costs
+    const net = {};
+    const add = (debtor, creditor, amt) => { if (!debtor || !creditor || debtor === creditor) return; const k = [debtor, creditor].sort().join("|"); net[k] = (net[k] || 0) + (debtor < creditor ? amt : -amt); };
     state.entries.forEach(e => {
       if (e.type !== "expense" || !e.split || !e.split.with || e.split.with === e.person) return;
-      const share = r2((+e.amount || 0) * (+e.split.share || 0.5));
-      if (e.person === "p1" && e.split.with === "p2") bal += share;
-      if (e.person === "p2" && e.split.with === "p1") bal -= share;
+      add(e.split.with, e.person, r2((+e.amount || 0) * (+e.split.share || 0.5)));
     });
-    state.settlements.forEach(s => { const a = +s.amount || 0; if (s.from === "p2" && s.to === "p1") bal -= a; if (s.from === "p1" && s.to === "p2") bal += a; });
-    return r2(bal);
+    state.settlements.forEach(s => add(s.to, s.from, +s.amount || 0));
+    return Object.keys(net).map(k => { const [a, b] = k.split("|"), v = r2(net[k]); return v > 0 ? { debtor: a, creditor: b, amt: v } : { debtor: b, creditor: a, amt: -v }; })
+      .filter(p => p.amt >= 0.01 && (!meId() || p.debtor === meId() || p.creditor === meId() || isHouse()));
   }
+  // positive => someone owes you (kept for the chat tools)
+  function owesBalance() { const p = owesPairs()[0]; return p ? (p.creditor === meId() ? p.amt : -p.amt) : 0; }
   function renderOwes() {
-    const bal = owesBalance(), box = $("owesBar");
-    if (Math.abs(bal) < 0.01) { box.hidden = true; return; }
-    const debtor = bal > 0 ? "p2" : "p1", creditor = bal > 0 ? "p1" : "p2", amt = Math.abs(bal);
+    const pairs = owesPairs(), box = $("owesBar");
+    if (!pairs.length) { box.hidden = true; return; }
     box.hidden = false;
-    box.innerHTML = ui.settling
-      ? `<span>Mark <b>${esc(money(amt))}</b> as paid by ${esc(pname(debtor))} to ${esc(pname(creditor))}?</span><span class="row-btns"><button class="primary" type="button" id="settleOk">Yes, settled</button><button class="icon-btn" type="button" id="settleNo">Cancel</button></span>`
-      : `<span><i class="pdot" style="background:${pcolor(debtor)}"></i><b>${esc(pname(debtor))}</b> owes <b>${esc(pname(creditor))}</b> <b class="num">${esc(money(amt))}</b> for shared costs</span><button class="ghost" type="button" id="settleBtn">Settle up</button>`;
+    box.innerHTML = pairs.map((p, i) => ui.settling === i
+      ? `<div class="owe-row"><span>Mark <b>${esc(money(p.amt))}</b> as paid by ${esc(pname(p.debtor))} to ${esc(pname(p.creditor))}?</span><span class="row-btns"><button class="primary" type="button" data-settle-ok="${i}">Yes, settled</button><button class="icon-btn" type="button" data-settle-no="1">Cancel</button></span></div>`
+      : `<div class="owe-row"><span><i class="pdot" style="background:${pcolor(p.debtor)}"></i><b>${esc(p.debtor === meId() ? "You" : pname(p.debtor))}</b> ${p.debtor === meId() ? "owe" : "owes"} <b>${esc(p.creditor === meId() ? "you" : pname(p.creditor))}</b> <b class="num">${esc(money(p.amt))}</b> for shared costs</span>${readOnly ? "" : `<button class="ghost" type="button" data-settle="${i}">Settle up</button>`}</div>`).join("");
   }
+  function settlePair(p) { backend.saveDoc("settlements", null, { from: p.debtor, to: p.creditor, amount: p.amt, date: todayISO(), created: Date.now() }); }
   $("owesBar").addEventListener("click", ev => {
-    const id = ev.target.closest("button") && ev.target.closest("button").id;
-    if (id === "settleBtn") { ui.settling = true; renderOwes(); }
-    else if (id === "settleNo") { ui.settling = false; renderOwes(); }
-    else if (id === "settleOk") {
-      const bal = owesBalance();
-      backend.saveDoc("settlements", null, { from: bal > 0 ? "p2" : "p1", to: bal > 0 ? "p1" : "p2", amount: Math.abs(bal), date: todayISO(), created: Date.now() });
-      ui.settling = false; toast("Settled up");
-    }
+    const b = ev.target.closest("button"); if (!b) return;
+    if (b.dataset.settle != null) { ui.settling = +b.dataset.settle; renderOwes(); }
+    else if (b.dataset.settleNo) { ui.settling = null; renderOwes(); }
+    else if (b.dataset.settleOk != null) { const p = owesPairs()[+b.dataset.settleOk]; if (p) settlePair(p); ui.settling = null; toast("Settled up"); }
   });
 
   // ---------- repeating entries ----------
@@ -1811,7 +1833,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     const box = $("budgetList");
     if (ui.editBudgets) {
       const all = [...new Set(EXP_CATS.filter(c => c !== LOAN_OUT).concat(state.entries.filter(e => e.type === "expense").map(e => e.category).filter(c => c && c !== LOAN_OUT && c !== LOAN_BACK_OUT)))];
-      box.innerHTML = `<p class="hint" style="margin:0">Monthly limits for ${esc(isHouse() ? "the household" : isMine(ui.view) ? "you" : pname(ui.view))}. Leave empty for no limit.</p>` +
+      box.innerHTML = `<p class="hint" style="margin:0">Monthly limits for ${esc(isHouse() ? "the " + houseName().toLowerCase() : isMine(ui.view) ? "you" : pname(ui.view))}. Leave empty for no limit.</p>` +
         all.map((c, i) => `<div class="bud-edit"><label for="bud${i}">${esc(c)}</label><input id="bud${i}" data-cat="${esc(c)}" type="number" inputmode="decimal" min="0" step="1" value="${b[c] || ""}" placeholder="No limit"></div>`).join("") +
         `<div class="formfoot"><button class="primary" type="button" id="budSave">Save budgets</button><button class="icon-btn" type="button" id="budCancel">Cancel</button></div>`;
       $("budSave").onclick = () => {
@@ -1838,7 +1860,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       const lim = +budgetsFor(who)[cat]; if (!(lim > 0)) return;
       const sp = spentIn(k, who, cat) + (state.entries.some(x => x.created === e.created) ? 0 : +e.amount);
       const before = sp - (+e.amount);
-      const label = who === "all" ? "Household" : pname(who);
+      const label = who === "all" ? houseName() : pname(who);
       if (sp >= lim && before < lim) setTimeout(() => toast(label + " is now over the " + cat + " budget (" + money(lim, { whole: true }) + ")"), 900);
       else if (sp >= lim * 0.8 && before < lim * 0.8) setTimeout(() => toast(label + " has used " + Math.round(sp / lim * 100) + "% of the " + cat + " budget"), 900);
     });
@@ -1867,7 +1889,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     svg += "</svg>";
     $("trendChart").innerHTML = svg;
     const tot = data.reduce((a, d) => ({ inc: a.inc + d.inc, out: a.out + d.out }), { inc: 0, out: 0 });
-    $("trendNote").textContent = (who === "all" ? "Household" : isMine(who) ? "You" : pname(who)) + " · 12 months: in " + money(tot.inc, { whole: true }) + ", out " + money(tot.out, { whole: true });
+    $("trendNote").textContent = (who === "all" ? houseName() : isMine(who) ? "You" : pname(who)) + " · 12 months: in " + money(tot.inc, { whole: true }) + ", out " + money(tot.out, { whole: true });
   }
   $("trendChart").addEventListener("click", ev => { const g = ev.target.closest("g.mon"); if (g) { ui.month = g.dataset.k; render(); } });
 
@@ -1895,12 +1917,12 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     $("fSplit").checked = !!e.split; $("fRepeat").checked = false; renderExtrasForm();
   });
   function renderExtrasForm() {
-    $("splitRow").hidden = ui.type !== "expense";
+    $("splitRow").hidden = ui.type !== "expense" || people().length < 2;
     $("splitLabel").textContent = "Split half with " + pname(otherOf(entryWhoSafe()));
     $("repeatRow").hidden = !!ui.editId;
   }
-  const entryWhoSafe = () => { try { return entryWho(); } catch { return "p1"; } };
-  const askerPersonSafe = () => ((household && household.personOf) || {})[fbctx && fbctx.user && fbctx.user.uid] || (isHouse() ? "p1" : ui.view);
+  const entryWhoSafe = () => { try { return entryWho(); } catch { return meId(); } };
+  const askerPersonSafe = () => meId() || ui.view;
 
   // ---------- share a screenshot into the app ----------
   async function takeSharedFiles() {
@@ -1993,18 +2015,18 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   // ---------- Ask Gemini (chat about your money) ----------
   const chat = { msgs: [], busy: false, abort: null };
   const round2 = n => Math.round((+n || 0) * 100) / 100;
-  const askerPerson = () => ((household && household.personOf) || {})[fbctx && fbctx.user && fbctx.user.uid] || "p1";
+  const askerPerson = () => meId();
 
   function resolvePerson(p) {
     if (!p) return "all";
     const s = String(p).trim().toLowerCase();
     if (["all", "household", "everyone", "both", "us", "we"].includes(s)) return "all";
     if (["me", "i", "asker", "my", "mine"].includes(s)) return askerPerson();
-    if (s === "p1" || s === "p2") return s;
+    if (people().some(x => x.id === p)) return p;
     const hit = people().find(x => x.name.trim().toLowerCase() === s) || people().find(x => s.includes(x.name.trim().toLowerCase()));
     return hit ? hit.id : "all";
   }
-  const whoLabel = who => who === "all" ? "Household" : pname(who);
+  const whoLabel = who => who === "all" ? houseName() : pname(who);
   const goalNameOf = id => (state.goals.find(g => g.id === id) || {}).name || "";
   const isoOk = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ""));
 
@@ -2077,7 +2099,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     const who = resolvePerson(a && a.person), k = /^\d{4}-\d{2}$/.test(String((a && a.month) || "")) ? a.month : monthKey(new Date()), b = budgetsFor(who);
     return { person: whoLabel(who), month: k, budgets: Object.keys(b).map(c => ({ category: c, limit: +b[c], spent: round2(spentIn(k, who, c)), left: round2(+b[c] - spentIn(k, who, c)) })) };
   };
-  TOOLS.owed = () => { const bal = owesBalance(); return Math.abs(bal) < 0.01 ? { status: "nobody owes anything for shared costs" } : { owes: pname(bal > 0 ? "p2" : "p1"), to: pname(bal > 0 ? "p1" : "p2"), amount: Math.abs(bal) }; };
+  TOOLS.owed = () => { const ps = owesPairs(); return !ps.length ? { status: "nobody owes anything for shared costs" } : { owing: ps.map(p => ({ owes: pname(p.debtor), to: pname(p.creditor), amount: p.amt })) }; };
   TOOLS.repeating = a => { const who = resolvePerson(a && a.person); return state.recurring.filter(r => who === "all" || r.person === who).map(r => ({ what: r.note || r.category, type: r.type, amount: +r.amount, day: r.day, whose: pname(r.person), automatic: !!r.auto, paused: !!r.paused })); };
   const TOOL_LABEL = { totals: "totals", list: "entries", month_summary: "month summary", goals: "goals", savings: "savings", loans: "loans", budgets: "budgets", owed: "shared costs", repeating: "repeating entries" };
   const ACTIONS = ["propose_entries", "add_loan", "loan_repayment", "create_goal", "set_budget", "add_recurring", "settle_up"];
@@ -2141,7 +2163,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
 
   // ---------- prepared changes (confirm card) ----------
   const findGoal = n => n ? state.goals.find(g => g.name.toLowerCase() === String(n).toLowerCase()) || state.goals.find(g => g.name.toLowerCase().includes(String(n).toLowerCase())) : null;
-  const meIfAll = p => { const w = resolvePerson(p || "me"); return w === "all" ? askerPerson() : w; };
+  const meIfAll = p => { if (spaceMode()) return meId(); const w = resolvePerson(p || "me"); return w === "all" ? askerPerson() : w; };
   function prepareAction(tool, a) {
     a = a || {};
     const cur = c => money(+c || 0);
@@ -2184,8 +2206,8 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       return { tool, data: d, lines: ["Every month on day " + d.day + ": " + (d.note || d.category || d.type) + " · " + cur(d.amount) + " · " + pname(d.person) + (d.auto ? " · reminder" : " · reminder")] };
     }
     if (tool === "settle_up") {
-      const bal = owesBalance(); if (Math.abs(bal) < 0.01) return { tool, invalid: true, lines: ["Nothing to settle: nobody owes anything for shared costs"] };
-      return { tool, bal, lines: [pname(bal > 0 ? "p2" : "p1") + " pays " + pname(bal > 0 ? "p1" : "p2") + " " + cur(Math.abs(bal)) + " (settled)"] };
+      const p = owesPairs()[0]; if (!p) return { tool, invalid: true, lines: ["Nothing to settle: nobody owes anything for shared costs"] };
+      return { tool, pair: p, lines: [pname(p.debtor) + " pays " + pname(p.creditor) + " " + cur(p.amt) + " (settled)"] };
     }
     return null;
   }
@@ -2197,7 +2219,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     else if (x.tool === "create_goal") backend.saveGoal(null, x.data);
     else if (x.tool === "set_budget") { const all = Object.assign({}, state.settings.budgets || {}); const b = Object.assign({}, all[x.who] || {}); if (x.amount > 0) b[x.category] = x.amount; else delete b[x.category]; all[x.who] = b; backend.saveSettings({ budgets: all }); }
     else if (x.tool === "add_recurring") createRecurring(x.data);
-    else if (x.tool === "settle_up") backend.saveDoc("settlements", null, { from: x.bal > 0 ? "p2" : "p1", to: x.bal > 0 ? "p1" : "p2", amount: Math.abs(x.bal), date: todayISO(), created: Date.now() });
+    else if (x.tool === "settle_up") settlePair(x.pair);
   }
 
   function fmtReply(t) {
@@ -2470,7 +2492,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   // dashboard tiles, dropdowns, font size, button labels, tidy entries.
   // ======================================================================
   // is this person the one signed in on this phone?
-  function isMine(id) { return !!(fbctx && fbctx.user && household && (household.personOf || {})[fbctx.user.uid] === id); }
+  function isMine(id) { return !!id && id === meId(); }
   function effMonth(e) { return e.countMonth || (e.date || "").slice(0, 7); }
   function countsMoney(e) {
     if (!e.loanId) return true;
@@ -2693,7 +2715,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     if (!(day >= 1 && day <= 31)) return err("Enter the day of the month it's due (1-31).");
     $("brErr").hidden = true;
     const k = monthKey(new Date());
-    backend.saveDoc("recurring", null, { type: $("brType").value, amount: r2(amount), category: $("brCat").value, note: name, person: isHouse() ? $("brWho").value : ui.view,
+    backend.saveDoc("recurring", null, { type: $("brType").value, amount: r2(amount), category: $("brCat").value, note: name, person: spaceMode() ? meId() : isHouse() ? $("brWho").value : ui.view,
       day, remindDays: Math.max(1, Math.min(31, parseInt($("brRemind").value, 10) || 7)), auto: false, startMonth: k, created: Date.now() });
     ["brName", "brAmt", "brDay"].forEach(id => $(id).value = ""); $("billBox").open = false; toast("Reminder saved");
   });
@@ -2835,9 +2857,313 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   // keep this device's notification token fresh (they change from time to time)
   function refreshPush() { if (fbctx && "Notification" in window && Notification.permission === "granted" && lsGet("pl-push-token")) registerPush(false).catch(() => {}); }
 
+  // ======================================================================
+  // Spaces: everyone has their own private space ("Me"), plus any groups
+  // they're in. Group entries are seen by the whole group but can only be
+  // changed by whoever added them. People can ask to see someone's own
+  // dashboard; if allowed, they get a view-only copy.
+  // ======================================================================
+  var SP = { space: null, spaces: [], profile: {}, my: null };
+  function meId() { return (fbctx && fbctx.user && fbctx.user.uid) || ""; }
+  function spaceMode() { return !!(household && household.type); }
+  function isGroup() { return !!(household && household.type === "group"); }
+  function isViewer() { return !!(SP.space && SP.space.role === "viewer"); }
+  function houseName() { return isGroup() ? (household.name || "Group") : "Household"; }
+  const FS = () => fbctx.F, hRef = id => FS().doc(fbctx.db, "households", id), uRef = () => FS().doc(fbctx.db, "users", meId());
+
+  // Old shared households used "p1"/"p2" for people; map them to accounts.
+  function legacyIds(arr) {
+    const pOf = household && household.personOf; if (!pOf || !arr) return arr;
+    const inv = {}; Object.keys(pOf).forEach(u => { inv[pOf[u]] = u; });
+    const m = v => (v === "p1" || v === "p2") && inv[v] ? inv[v] : v;
+    arr.forEach(x => {
+      if (x.person) x.person = m(x.person);
+      if (x.owner) x.owner = m(x.owner);
+      if (x.split && x.split.with) x.split = Object.assign({}, x.split, { with: m(x.split.with) });
+      if (x.from) x.from = m(x.from);
+      if (x.to) x.to = m(x.to);
+    });
+    return arr;
+  }
+
+  // Can I change this entry / goal / loan / bill?
+  function canEdit(x) {
+    if (readOnly || !x) return false;
+    if (!spaceMode()) return true;
+    const me = meId();
+    if (x.author) return x.author === me;
+    if (!isGroup()) return true;
+    return (x.person || x.owner) === me || (household.owner === me && (x.owner === "shared" || !x.person));
+  }
+  function addedBy(x) { const a = x && (x.author || x.person); return a && a !== meId() && isGroup() ? pname(a) : ""; }
+
+  // people for this space
+  normalize = (orig => function () {
+    if (spaceMode()) {
+      const st = state.settings, me = meId();
+      if (isGroup()) {
+        const nm = household.names || {}, cl = household.colors || {};
+        st.people = (household.members || []).map(u => Object.assign({ id: u, name: nm[u] || "Member" }, cl[u] ? { color: cl[u] } : {},
+          u === me && SP.my ? { bank: SP.my.bank || "", acct: SP.my.acct || "" } : {}));
+        if (!st.people.length) st.people = [{ id: me, name: "Me" }];
+      } else if (!Array.isArray(st.people) || !st.people.length) st.people = [{ id: household.owner || me, name: "Me" }];
+      const solo = isGroup() ? "" : st.people[0].id;
+      state.entries.forEach(e => { if (!e.person) e.person = e.author || solo || household.owner; });
+      state.goals.forEach(g => { if (!g.owner) g.owner = solo || g.author || "shared"; });
+      if (!st.openingBy) st.openingBy = {};
+      if (!isGroup()) ui.view = st.people[0].id;
+      else if (ui.view !== "all" && !st.people.some(p => p.id === ui.view)) ui.view = "all";
+    }
+    orig();
+  })(normalize);
+
+  // ---------- hide change buttons on things other people added ----------
+  function lockOthers() {
+    if (!spaceMode()) return;
+    const find = (arr, id) => (arr || []).find(x => x.id === id);
+    const strip = (sel, attr, arr) => document.querySelectorAll(sel).forEach(b => { if (!canEdit(find(arr, b.dataset[attr]))) b.remove(); });
+    strip("#ledger button[data-edit]", "edit", state.entries); strip("#ledger button[data-ask]", "ask", state.entries);
+    strip("#goals button[data-gedit]", "gedit", state.goals); strip("#goals button[data-gask]", "gask", state.goals);
+    strip("button[data-repay]", "repay", state.loans); strip("button[data-inmonth]", "inmonth", state.loans);
+    strip("button[data-rpause]", "rpause", state.recurring); strip("button[data-rask]", "rask", state.recurring);
+    if (isGroup() && !isHouse()) document.querySelectorAll("#ledger li.tx").forEach(li => {
+      const e = find(state.entries, li.dataset.id); const by = addedBy(e); const sm = li.querySelector(".what small");
+      if (by && sm && !sm.querySelector(".by-tag")) sm.insertAdjacentHTML("beforeend", ` <span class="by-tag">added by ${esc(by)}</span>`);
+    });
+  }
+  renderLedger = (o => function () { o(); lockOthers(); })(renderLedger);
+  renderGoals = (o => function () { o(); lockOthers(); })(renderGoals);
+  renderLoans = (o => function () { o(); lockOthers(); })(renderLoans);
+  renderRecurring = (o => function () { o(); lockOthers(); })(renderRecurring);
+
+  // the form: in a space you always add things as yourself
+  renderFormBits = (o => function () {
+    o();
+    if (!spaceMode()) return;
+    const me = meId(), myName = pname(me);
+    $("whoField").hidden = true;
+    $("fWho").innerHTML = `<option value="${esc(me)}">${esc(myName)}</option>`;
+    const go = $("gOwner"), cur = go.value;
+    go.innerHTML = isGroup() ? `<option value="shared">Shared with ${esc(houseName())}</option>` : `<option value="${esc(me)}">${esc(myName)}</option>`;
+    go.value = go.options[0].value; if (cur && [...go.options].some(x => x.value === cur)) go.value = cur;
+    go.closest(".field").hidden = true;
+  })(renderFormBits);
+
+  // ---------- the bar at the top: Me / groups / dashboards shared with me ----------
+  function renderSpaceBar() {
+    const bar = $("spaceBar"); if (!bar) return;
+    const list = SP.spaces || [];
+    bar.hidden = list.length < 2;
+    bar.innerHTML = list.map(s => `<button type="button" data-space="${esc(s.id)}" aria-pressed="${s.id === (SP.space && SP.space.id)}">${esc(s.role === "viewer" ? s.name + " (view only)" : s.name)}</button>`).join("");
+  }
+  function afterRenderSpaces() {
+    if (!spaceMode()) return;
+    renderSpaceBar();
+    $("who").hidden = !isGroup() || people().length < 2;
+    const hb = $("who").querySelector("button.house"); if (hb) hb.textContent = "All of " + houseName();
+    if (isViewer()) { $("readonlyBanner").hidden = false; $("readonlyBanner").innerHTML = `<span>You're looking at ${esc(SP.space.name.replace(/'s$/, ""))}'s dashboard. Only they can change it.</span>`; }
+    if (!isGroup() && !isViewer()) { $("heroLabel").textContent = "Left to spend this month"; }
+  }
+  render = (o => function () { o(); try { afterRenderSpaces(); } catch (e) { console.error(e); } })(render);
+  document.addEventListener("click", ev => {
+    const b = ev.target.closest("#spaceBar button[data-space]"); if (!b || !fbctx) return;
+    if (SP.space && b.dataset.space === SP.space.id) return;
+    fbctx.switchTo(b.dataset.space);
+  });
+
+  function spacesBoot(fb) {
+    SP.space = fb.space || null; SP.spaces = fb.spaces || []; SP.profile = fb.profile || {};
+    if (!SP.space) return;
+    if (SP.space.role === "viewer") readOnly = true;
+    try { ui.view = SP.space.type === "group" ? (localStorage.getItem("pl-view-" + SP.space.id) || "all") : fb.user.uid; } catch { ui.view = "all"; }
+    // my own name / bank details (they live in my private space)
+    if (SP.profile.personal && SP.space.id !== SP.profile.personal) {
+      fb.F.getDoc(fb.F.doc(fb.db, "households", SP.profile.personal)).then(s => { if (s.exists()) { SP.my = ((s.data().settings || {}).people || [])[0] || null; normalize(); render(); } }).catch(() => {});
+    }
+    try { const m = sessionStorage.getItem("pl-join-msg"); if (m) { sessionStorage.removeItem("pl-join-msg"); setTimeout(() => toast(m), 800); } } catch {}
+  }
+  $("who").addEventListener("click", ev => { const b = ev.target.closest("button[data-view]"); if (b && SP.space) { try { localStorage.setItem("pl-view-" + SP.space.id, b.dataset.view); } catch {} } });
+
+
+  // ---------- settings: your details ----------
+  function fillMyDetails() {
+    if (!spaceMode()) return;
+    const me = meId(), p = (isGroup() ? SP.my : (people()[0] || {})) || {}, ob = state.settings.openingBy || {};
+    $("setName1").value = (isGroup() ? (household.names || {})[me] : p.name) || p.name || "";
+    $("setOpen1").value = isGroup() ? "" : (ob[me] || "");
+    $("setBank1").value = p.bank || ""; $("setAcct1").value = p.acct || "";
+    $("setName1").previousElementSibling.textContent = "Your name";
+    $("setOpen1L").textContent = "Savings you already had";
+    $("setBank1L").textContent = "Name on your bank account";
+    $("setAcct1L").textContent = "Your account numbers (last 4 digits)";
+    ["setName2", "setOpen2", "setBank2", "setAcct2"].forEach(id => { const f = $(id).closest(".field"); if (f) f.hidden = true; });
+    $("pcol2").hidden = true;
+    $("setCurrency").disabled = isGroup() && household.owner !== me;
+    $("setOpen1").closest(".field").hidden = isGroup();
+    renderPcolors();
+    renderGroups(); renderPrivacy();
+  }
+  $("settingsBtn").addEventListener("click", () => { if (fbctx && !$("settingsPanel").hidden) setTimeout(fillMyDetails, 0); });
+
+  async function saveMyDetails() {
+    const me = meId(), F = FS();
+    const name = $("setName1").value.trim() || "Me";
+    const o1 = num($("setOpen1").value || "0");
+    if (!(o1 >= 0)) { toast("Starting savings can't be negative."); return; }
+    const color = pickColor[me] || pcolor(me);
+    const mine = { id: me, name, bank: $("setBank1").value.trim(), acct: last4($("setAcct1").value), color };
+    const cur = $("setCurrency").value;
+    const jobs = [];
+    const pid = SP.profile.personal;
+    if (pid && (!isGroup() || SP.my)) {
+      const up = { "settings.people": [mine] };
+      if (!isGroup()) { up["settings.openingBy"] = { [me]: o1 }; up["settings.opening"] = o1; up["settings.currency"] = cur; }
+      jobs.push(F.updateDoc(hRef(pid), up));
+    }
+    (SP.spaces || []).filter(s => s.type === "group" && s.role === "member").forEach(s => {
+      const up = { ["names." + me]: name, ["colors." + me]: color };
+      jobs.push(F.updateDoc(hRef(s.id), up));
+      if (isGroup() && s.id === fbctx.hid && household.owner === me) jobs.push(F.updateDoc(hRef(s.id), { "settings.currency": cur }));
+    });
+    jobs.push(F.setDoc(uRef(), { name }, { merge: true }));
+    fmtCache = {}; SP.my = mine;
+    const ok = await run(Promise.all(jobs), "Settings saved");
+    if (ok) $("settingsPanel").hidden = true;
+  }
+
+  // ---------- settings: groups ----------
+  const groupDocs = {};
+  async function renderGroups() {
+    const box = $("grpList"); if (!box) return;
+    const groups = (SP.spaces || []).filter(s => s.type === "group" && s.role === "member");
+    $("grpInfo").textContent = groups.length ? "Everyone in a group sees its entries. Only the person who added something can change it." : "You're not in any groups yet. A group is for shared costs, like a household or a trip.";
+    for (const g of groups) { if (g.id === fbctx.hid) groupDocs[g.id] = household; else if (!groupDocs[g.id]) { try { const s = await FS().getDoc(hRef(g.id)); if (s.exists()) groupDocs[g.id] = s.data(); } catch {} } }
+    box.innerHTML = groups.map(g => {
+      const d = groupDocs[g.id] || {}, own = d.owner === meId(), open = (d.joinUntil || 0) > Date.now();
+      const names = (d.members || []).map(u => (d.names || {})[u] || "Member");
+      return `<div class="grp" data-g="${esc(g.id)}">
+        <div class="grp-top"><b>${esc(d.name || g.name)}</b><small>${esc(names.join(", "))}${own ? " · you made this group" : ""}</small></div>
+        ${own ? `<div class="grp-rename"><input data-rename="${esc(g.id)}" maxlength="30" value="${esc(d.name || g.name)}" aria-label="Group name"><button class="ghost" type="button" data-renameok="${esc(g.id)}">Rename</button></div>
+        <div class="field"><label>Invite link</label><input readonly value="${esc(inviteUrl(g.id))}"></div>
+        <p class="hint" style="margin:0">${open ? "Invitations are open until " + esc(new Date(d.joinUntil).toLocaleDateString(undefined, { day: "numeric", month: "short" })) + ". Anyone with the link can join until then." : "Invitations are closed, so the link doesn't let anyone join."}</p>
+        <div class="formfoot"><button class="ghost" type="button" data-copy="${esc(g.id)}">Copy link</button>${navigator.share ? `<button class="ghost" type="button" data-share="${esc(g.id)}">Share</button>` : ""}<button class="ghost" type="button" data-inv="${esc(g.id)}" data-open="${open ? 0 : 1}">${open ? "Close invitations" : "Open invitations for 7 days"}</button></div>`
+        : `<div class="formfoot"><button class="ghost" type="button" data-leave="${esc(g.id)}">Leave group</button></div>`}
+      </div>`;
+    }).join("");
+  }
+  $("settingsPanel").addEventListener("click", async ev => {
+    const b = ev.target.closest("button"); if (!b || !fbctx) return;
+    const F = FS(), d = b.dataset;
+    try {
+      if (d.renameok) {
+        const name = (document.querySelector(`[data-rename="${CSS.escape(d.renameok)}"]`).value || "").trim().slice(0, 30);
+        if (!name) return toast("Type a name for the group.");
+        await F.updateDoc(hRef(d.renameok), { name }); (groupDocs[d.renameok] || {}).name = name;
+        const sp = SP.spaces.find(s => s.id === d.renameok); if (sp) sp.name = name;
+        toast("Group renamed"); renderGroups(); render();
+      } else if (d.copy) {
+        try { await navigator.clipboard.writeText(inviteUrl(d.copy)); toast("Invite link copied"); } catch { toast("Select and copy the link"); }
+      } else if (d.share) {
+        navigator.share({ title: "Pocket Ledger", text: "Join my group in Pocket Ledger", url: inviteUrl(d.share) }).catch(() => {});
+      } else if (d.inv) {
+        const until = d.open === "1" ? Date.now() + 7 * 864e5 : 0;
+        await F.updateDoc(hRef(d.inv), { joinUntil: until }); if (groupDocs[d.inv]) groupDocs[d.inv].joinUntil = until; if (d.inv === fbctx.hid && household) household.joinUntil = until;
+        toast(until ? "Invitations open for 7 days" : "Invitations closed"); renderGroups();
+      } else if (d.leave) {
+        if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Tap again to leave"; return; }
+        await F.updateDoc(hRef(d.leave), { members: F.arrayRemove(meId()) });
+        await F.setDoc(uRef(), { spaces: F.arrayRemove(d.leave) }, { merge: true });
+        toast("You left the group");
+        if (d.leave === fbctx.hid) fbctx.switchTo(SP.profile.personal); else { SP.spaces = SP.spaces.filter(s => s.id !== d.leave); renderGroups(); renderSpaceBar(); }
+      } else if (b.id === "grpCreate") {
+        const name = $("grpNewName").value.trim().slice(0, 30);
+        if (!name) return toast("Give the group a name first.");
+        const me = meId(), ref = F.doc(F.collection(fbctx.db, "households"));
+        await F.setDoc(ref, { type: "group", name, owner: me, members: [me], names: { [me]: pname(me) || "Me" }, colors: { [me]: pcolor(me) },
+          created: Date.now(), joinUntil: Date.now() + 7 * 864e5, ai: { server: serverAI() }, settings: { currency: state.settings.currency || "MVR", opening: 0 } });
+        await F.setDoc(uRef(), { spaces: F.arrayUnion(ref.id) }, { merge: true });
+        toast("Group created. Send the invite link from Settings."); fbctx.switchTo(ref.id);
+      } else if (b.id === "grpJoin") {
+        let c = $("grpJoinCode").value.trim(); const m = c.match(/join=([A-Za-z0-9_-]+)/); if (m) c = m[1];
+        if (!/^[A-Za-z0-9_-]{3,40}$/.test(c)) return toast("That invite code doesn't look right.");
+        await fbctx.joinGroup(c); toast("You joined the group"); fbctx.switchTo(c);
+      } else if (d.ask) {
+        const [to, group] = d.ask.split("|");
+        await F.setDoc(F.doc(F.collection(fbctx.db, "viewRequests")), { from: meId(), fromName: SP.profile.name || pname(meId()), to, toName: d.askname || "", status: "pending", created: Date.now(), group });
+        toast("Asked. They'll see your request next time they open Pocket Ledger."); renderPrivacy();
+      } else if (d.cancelreq) {
+        await F.deleteDoc(F.doc(fbctx.db, "viewRequests", d.cancelreq)); renderPrivacy();
+      } else if (d.revoke) {
+        const [rid, who] = d.revoke.split("|");
+        await F.updateDoc(hRef(SP.profile.personal), { viewers: F.arrayRemove(who) });
+        await F.updateDoc(F.doc(fbctx.db, "viewRequests", rid), { status: "revoked", answered: Date.now() });
+        toast("They can't see your dashboard any more"); renderPrivacy();
+      }
+    } catch (e) {
+      toast(e && e.code === "permission-denied" ? "You can't do that. Only the group's creator can change it." : e && e.code === "not-found" ? "No group has that code." : "That didn't work. Check your connection and try again.");
+    }
+  });
+
+  // ---------- settings: privacy (who can see my dashboard) ----------
+  async function requestsWhere(field) {
+    const F = FS();
+    const q = await F.getDocs(F.query(F.collection(fbctx.db, "viewRequests"), F.where(field, "==", meId())));
+    return q.docs.map(d => Object.assign({ id: d.id }, d.data()));
+  }
+  async function renderPrivacy() {
+    const box = $("privList"); if (!box || !fbctx) return;
+    let mineOut = [], toMe = [];
+    try { [mineOut, toMe] = await Promise.all([requestsWhere("from"), requestsWhere("to")]); } catch { box.innerHTML = `<p class="hint">Connect to the internet to see who can view your dashboard.</p>`; return; }
+    const seeing = toMe.filter(r => r.status === "accepted");
+    // people in my groups I could ask
+    const others = {};
+    (SP.spaces || []).filter(s => s.type === "group").forEach(s => {
+      const d = groupDocs[s.id] || (s.id === fbctx.hid ? household : null); if (!d) return;
+      (d.members || []).forEach(u => { if (u !== meId()) others[u] = { name: (d.names || {})[u] || "Member", group: s.id }; });
+    });
+    const asked = new Set(mineOut.filter(r => r.status === "pending" || r.status === "accepted").map(r => r.to));
+    let html = `<p class="hint" style="margin:0">${seeing.length ? "These people can see your own dashboard (view only):" : "Nobody else can see your own entries."}</p>`;
+    html += seeing.map(r => `<div class="priv-row"><span>${esc(r.fromName || "Someone")}</span><button class="ghost" type="button" data-revoke="${esc(r.id)}|${esc(r.from)}">Stop sharing</button></div>`).join("");
+    const outs = mineOut.filter(r => r.status === "pending" || r.status === "declined");
+    if (outs.length) html += `<p class="hint" style="margin:8px 0 0">Your requests:</p>` + outs.map(r => `<div class="priv-row"><span>${esc(r.toName || "Someone")}: ${r.status === "pending" ? "waiting" : "said no"}</span><button class="icon-btn" type="button" data-cancelreq="${esc(r.id)}">${r.status === "pending" ? "Cancel" : "Clear"}</button></div>`).join("");
+    const can = Object.keys(others).filter(u => !asked.has(u));
+    if (can.length) html += `<p class="hint" style="margin:8px 0 0">Ask to see someone's own dashboard:</p>` + can.map(u => `<div class="priv-row"><span>${esc(others[u].name)}</span><button class="ghost" type="button" data-ask="${esc(u)}|${esc(others[u].group)}" data-askname="${esc(others[u].name)}">Ask to see</button></div>`).join("");
+    box.innerHTML = html;
+  }
+
+  // ---------- someone asked to see my dashboard ----------
+  let reqQueue = [];
+  async function checkRequests() {
+    if (!fbctx || !SP.profile.personal || isViewer()) return;
+    try { const F = FS(); const q = await F.getDocs(F.query(F.collection(fbctx.db, "viewRequests"), F.where("to", "==", meId()), F.where("status", "==", "pending"))); reqQueue = q.docs.map(d => Object.assign({ id: d.id }, d.data())); }
+    catch { reqQueue = []; }
+    renderReqBar();
+  }
+  function renderReqBar() {
+    const bar = $("reqBar"); if (!bar) return;
+    const r = reqQueue[0]; bar.hidden = !r; if (!r) return;
+    bar.innerHTML = `<span><b>${esc(r.fromName || "Someone")}</b> would like to see your own dashboard. They'd only be able to look, not change anything. You can stop it any time in Settings.</span><span class="row-btns"><button class="primary" type="button" data-reqok="${esc(r.id)}">Allow</button><button class="ghost" type="button" data-reqno="${esc(r.id)}">Don't allow</button></span>`;
+  }
+  $("reqBar").addEventListener("click", async ev => {
+    const b = ev.target.closest("button"); if (!b) return;
+    const r = reqQueue.find(x => x.id === (b.dataset.reqok || b.dataset.reqno)); if (!r) return;
+    const F = FS();
+    try {
+      if (b.dataset.reqok) {
+        await F.updateDoc(hRef(SP.profile.personal), { viewers: F.arrayUnion(r.from) });
+        await F.updateDoc(F.doc(fbctx.db, "viewRequests", r.id), { status: "accepted", space: SP.profile.personal, toName: SP.profile.name || pname(meId()), answered: Date.now() });
+        toast((r.fromName || "They") + " can now see your dashboard");
+      } else {
+        await F.updateDoc(F.doc(fbctx.db, "viewRequests", r.id), { status: "declined", answered: Date.now() });
+        toast("Request declined");
+      }
+      reqQueue = reqQueue.filter(x => x.id !== r.id); renderReqBar();
+    } catch { toast("That didn't work. Check your connection and try again."); }
+  });
+
   // ---------- settings: this device, household, account ----------
   function openSettings() { if ($("settingsPanel").hidden) $("settingsBtn").click(); $("settingsPanel").scrollIntoView({ behavior: "smooth", block: "start" }); }
-  function inviteUrl() { return fbctx ? location.origin + location.pathname + "?join=" + fbctx.hid : ""; }
+  const inviteUrl = id => location.origin + location.pathname + "?join=" + id;
   $("settingsBtn").addEventListener("click", () => {
     const dk = lsGet(KEY_LS).trim(), hk = householdKey();
     $("setHKey").value = hk || dk; $("setKey").value = dk && dk !== (hk || dk) ? dk : ""; $("setModel").value = lsGet(MODEL_LS);
@@ -2848,22 +3174,13 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     $("setAcct2L").textContent = ((pp[1] || {}).name || "Second person") + "'s account numbers (last 4 digits)";
     $("setBank1L").textContent = "Name on " + ((pp[0] || {}).name || "first person") + "'s bank account";
     $("setBank2L").textContent = "Name on " + ((pp[1] || {}).name || "second person") + "'s bank account";
-    $("inviteLink").value = inviteUrl();
-    const n = household && household.members ? household.members.length : 1;
-    $("hhInfo").textContent = n >= 2 ? "You're both connected. Everyone in the household sees the same entries." : "Only you are connected so far. Send this link to your partner. They open it, create an account and tap Join household.";
     $("acctInfo").textContent = fbctx && fbctx.user ? "Signed in as " + (fbctx.user.email || "you") + "." : "";
-    $("shareInvite").hidden = !navigator.share;
   });
   $("saveSettings").addEventListener("click", () => {
     const hk = $("setHKey").value.trim(), dk = $("setKey").value.trim();
     lsSet(KEY_LS, dk && dk !== hk ? dk : ""); lsSet(MODEL_LS, $("setModel").value.trim());
     if (backend && backend.saveGemini && hk !== householdKey()) backend.saveGemini(hk);
   });
-  $("copyInvite").addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(inviteUrl()); toast("Invite link copied"); }
-    catch { $("inviteLink").select(); toast("Select and copy the link"); }
-  });
-  $("shareInvite").addEventListener("click", () => { navigator.share({ title: "Pocket Ledger", text: "Join our household in Pocket Ledger", url: inviteUrl() }).catch(() => {}); });
   $("signOutBtn").addEventListener("click", () => { if (fbctx) fbctx.signOut(); });
 
   // ---------- install button ----------
@@ -2875,16 +3192,15 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   window.addEventListener("offline", render);
 
   // ---------- boot (called by app.js once signed in) ----------
-  let viewChosen = false;
-  try { if (localStorage.getItem("pl-view")) viewChosen = true; } catch {}
   $("fDate").value = defaultDate();
   window.PL = {
     boot(fb) {
       fbctx = fb;
+      spacesBoot(fb);
       backend = firebaseBackend(fb);
       render();
       $("lnDate").value = todayISO();
-      (function waitReady() { if (state.ready) { takeSharedFiles(); handleShortcut(); refreshPush(); } else setTimeout(waitReady, 300); })();
+      (function waitReady() { if (state.ready) { takeSharedFiles(); handleShortcut(); refreshPush(); checkRequests(); } else setTimeout(waitReady, 300); })();
     }
   };
 
@@ -2899,7 +3215,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
   document.querySelectorAll(".theme-sw").forEach(b => b.addEventListener("click", () => { lsSet("pl-preset", b.dataset.preset === "lagoon" ? "" : b.dataset.preset); window.plApplyTheme(); syncAppearance(); }));
   $("setAmoled").addEventListener("change", () => { lsSet("pl-amoled", $("setAmoled").checked ? "1" : ""); window.plApplyTheme(); });
   function renderPcolors() {
-    people().slice(0, 2).forEach((p, i) => {
+    (spaceMode() ? people().filter(p => p.id === meId()) : people().slice(0, 2)).forEach((p, i) => {
       const cur = pickColor[p.id] || pcolor(p.id);
       $("pcol" + (i + 1)).innerHTML = `<span>${esc(p.name)}'s colour</span>` + PCOLORS.map(c => `<button type="button" data-p="${p.id}" data-c="${c}" style="background:${c}" aria-label="${c}" aria-pressed="${c === cur}"></button>`).join("");
     });
@@ -2908,17 +3224,8 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     const b = ev.target.closest("button[data-c]"); if (!b) return;
     pickColor[b.dataset.p] = b.dataset.c; renderPcolors();
   }));
-  $("settingsBtn").addEventListener("click", () => { pickColor.p1 = pickColor.p2 = null; syncAppearance(); renderPcolors(); });
+  $("settingsBtn").addEventListener("click", () => { Object.keys(pickColor).forEach(k => { pickColor[k] = null; }); syncAppearance(); renderPcolors(); });
 
-  // ---------- invitations open / closed ----------
-  function renderJoin() {
-    const until = household && household.joinUntil || 0, open = until > Date.now();
-    $("joinState").textContent = open ? "The invite link works until " + new Date(until).toLocaleDateString(undefined, { day: "numeric", month: "short" }) + ". Close invitations once your partner has joined." : "Invitations are closed, so the link above doesn't let anyone join. Open them only when someone needs to join.";
-    $("joinOpen").hidden = open; $("joinClose").hidden = !open;
-  }
-  $("settingsBtn").addEventListener("click", renderJoin);
-  $("joinOpen").addEventListener("click", () => { backend.setJoinUntil(Date.now() + 7 * 864e5); household.joinUntil = Date.now() + 7 * 864e5; renderJoin(); toast("Invitations open for 7 days"); });
-  $("joinClose").addEventListener("click", () => { backend.setJoinUntil(0); household.joinUntil = 0; renderJoin(); toast("Invitations closed"); });
 })();
 </script>
 <script type="module" src="app.js"></script>

@@ -1,39 +1,61 @@
 rules_version = '2';
+// Pocket Ledger: everyone has a private space; groups are shared.
+//  - Only members can add things to a space; only the person who added something can change or delete it.
+//  - "viewers" can look at someone's private space (after that person allowed it) but can't change anything.
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function isMember(hid) {
-      return signedIn() && request.auth.uid in get(/databases/$(database)/documents/households/$(hid)).data.members;
-    }
+    function me() { return request.auth.uid; }
+    function space(hid) { return get(/databases/$(database)/documents/households/$(hid)).data; }
+    function isMember(hid) { return signedIn() && me() in space(hid).members; }
+    function canView(hid) { let d = space(hid); return signedIn() && (me() in d.members || me() in d.get('viewers', [])); }
+    function onlyKeys(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+    function onlyMyKey(field) { return request.resource.data.get(field, {}).diff(resource.data.get(field, {})).affectedKeys().hasOnly([me()]); }
 
-    // Each person's pointer to their household. Only they can see or change it.
     match /users/{uid} {
-      allow read, write: if signedIn() && request.auth.uid == uid;
+      allow read, write: if signedIn() && me() == uid;
     }
 
     match /households/{hid} {
-      // Start a household: you must be its only member.
-      allow create: if signedIn() && request.resource.data.members == [request.auth.uid];
-      // Only members can see it.
-      allow read: if signedIn() && request.auth.uid in resource.data.members;
-      // Members can change it. Someone with the invite link can only add themselves,
-      // and only while invitations are open (joinUntil is in the future), max 4 people.
+      allow create: if signedIn() && request.resource.data.members == [me()]
+                    && request.resource.data.get('owner', me()) == me()
+                    && request.resource.data.get('viewers', []).size() == 0;
+      allow read: if signedIn() && (me() in resource.data.members || me() in resource.data.get('viewers', []));
       allow update: if signedIn() && (
-        request.auth.uid in resource.data.members ||
-        (
-          resource.data.get('joinUntil', 0) > request.time.toMillis() &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'personOf']) &&
-          request.resource.data.members.toSet() == resource.data.members.toSet().union([request.auth.uid].toSet()) &&
-          request.resource.data.personOf.diff(resource.data.personOf).affectedKeys().hasOnly([request.auth.uid]) &&
-          resource.data.members.size() < 4
-        )
+        // the owner (or any member of an old-style household that has no owner yet)
+        (me() in resource.data.members && resource.data.get('owner', me()) == me())
+        // a member changing only their own name / colour in a group
+        || (me() in resource.data.members && onlyKeys(['names', 'colors']) && onlyMyKey('names') && onlyMyKey('colors'))
+        // a member leaving a group (the owner can't leave)
+        || (me() in resource.data.members && onlyKeys(['members'])
+            && request.resource.data.members.toSet() == resource.data.members.toSet().difference([me()].toSet()))
+        // someone joining a group with an invite link, while invitations are open
+        || (resource.data.get('type', 'group') == 'group'
+            && resource.data.get('joinUntil', 0) > request.time.toMillis()
+            && onlyKeys(['members', 'names', 'personOf'])
+            && request.resource.data.members.toSet() == resource.data.members.toSet().union([me()].toSet())
+            && onlyMyKey('names') && onlyMyKey('personOf')
+            && resource.data.members.size() < 20)
       );
       allow delete: if false;
 
-      // Entries and goals: members only.
       match /{sub}/{docId} {
-        allow read, write: if isMember(hid);
+        allow read: if canView(hid);
+        allow create: if isMember(hid) && request.resource.data.get('author', '') == me();
+        allow update: if isMember(hid) && resource.data.get('author', me()) == me() && request.resource.data.get('author', '') == me();
+        allow delete: if isMember(hid) && resource.data.get('author', me()) == me();
       }
     }
+
+    // "Can I see your dashboard?" requests between people who share a group.
+    match /viewRequests/{rid} {
+      allow create: if signedIn() && request.resource.data.from == me() && request.resource.data.status == 'pending'
+                    && request.resource.data.keys().hasOnly(['from', 'fromName', 'to', 'toName', 'status', 'created', 'group']);
+      allow read: if signedIn() && (resource.data.from == me() || resource.data.to == me());
+      allow update: if signedIn() && resource.data.to == me() && onlyKeys(['status', 'space', 'toName', 'answered']);
+      allow delete: if signedIn() && (resource.data.from == me() || resource.data.to == me());
+    }
+
+    match /{document=**} { allow read, write: if false; }
   }
 }

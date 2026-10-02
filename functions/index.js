@@ -87,10 +87,11 @@ exports.gemini = onCall({ secrets: [GEMINI_KEY], timeoutSeconds: 120, memory: "5
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
   const uid = req.auth.uid;
   const user = await db.doc("users/" + uid).get();
-  const hid = user.exists && user.data().household;
-  if (!hid) throw new HttpsError("permission-denied", "Join a household first.");
+  const u = user.exists ? user.data() : {};
+  const hid = u.personal || u.household;
+  if (!hid) throw new HttpsError("permission-denied", "Finish setting up Pocket Ledger first.");
   const hh = await db.doc("households/" + hid).get();
-  if (!hh.exists || !(hh.data().members || []).includes(uid)) throw new HttpsError("permission-denied", "Not a member of this household.");
+  if (!hh.exists || !(hh.data().members || []).includes(uid)) throw new HttpsError("permission-denied", "Not set up for Pocket Ledger.");
   if (req.data && req.data.ping) return { ok: true };
 
   // simple daily limit per person

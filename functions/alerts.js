@@ -35,7 +35,8 @@ function loanOutstanding(l, entries) {
 function computeAlerts(hh, data, today) {
   const cur = (hh.settings && hh.settings.currency) || "MVR";
   const people = (hh.settings && hh.settings.people) || [{ id: "p1", name: "Me" }, { id: "p2", name: "Partner" }];
-  const pname = id => (people.find(p => p.id === id) || {}).name || "Someone";
+  const names = hh.names || {};
+  const pname = id => names[id] || (people.find(p => p.id === id) || {}).name || "Someone";
   const prev = hh.alertState || {};
   const state = {};
   const alerts = [];
@@ -105,6 +106,7 @@ function recipientsFor(alert, hh) {
   const personOf = hh.personOf || {};
   const members = hh.members || [];
   if (!alert.person) return members.slice();
+  if (members.includes(alert.person)) return [alert.person];
   const uids = members.filter(u => personOf[u] === alert.person);
   return uids.length ? uids : members.slice();
 }

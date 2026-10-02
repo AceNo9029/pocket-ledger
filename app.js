@@ -75,72 +75,149 @@ async function main() {
     catch (e) { gateMsg("gErr", authErr(e)); }
   });
 
-  // ---- household set-up ----
+  // ---- spaces: your private space + groups you're in ----
   const joinCode = new URLSearchParams(location.search).get("join") || "";
   if (joinCode) $("gJoinCode").value = joinCode;
+  const H = id => F.doc(db, "households", id);
+  const U = uid => F.doc(db, "users", uid);
+  const getSnap = async ref => { try { return await F.getDoc(ref); } catch { try { return await F.getDocFromCache(ref); } catch { return null; } } };
+  const codeFrom = v => { let c = String(v || "").trim(); const m = c.match(/join=([A-Za-z0-9_-]+)/); if (m) c = m[1]; return /^[A-Za-z0-9_-]{3,40}$/.test(c) ? c : ""; };
 
-  async function findHousehold(user) {
-    const key = "pl-hh-" + user.uid;
-    const ref = F.doc(db, "users", user.uid);
-    let snap = null;
-    try { snap = await F.getDoc(ref); } catch { try { snap = await F.getDocFromCache(ref); } catch {} }
-    let hid = snap && snap.exists() ? snap.data().household : null;
-    if (!hid) { try { hid = localStorage.getItem(key); } catch {} }
-    if (hid) { try { localStorage.setItem(key, hid); } catch {} }
-    return hid || null;
-  }
-  async function linkUser(user, hid) {
-    await F.setDoc(F.doc(db, "users", user.uid), { household: hid, email: user.email || "" });
-    try { localStorage.setItem("pl-hh-" + user.uid, hid); } catch {}
+  async function createPersonal(user, name, extra) {
+    const ref = F.doc(F.collection(db, "households"));
+    const me = Object.assign({ id: user.uid, name: name || "Me" }, (extra && extra.me) || {});
+    await F.setDoc(ref, Object.assign({}, (extra && extra.top) || {}, {
+      type: "personal", owner: user.uid, members: [user.uid], created: Date.now(),
+      settings: Object.assign({ currency: "MVR", opening: 0 }, (extra && extra.settings) || {}, { people: [me], openingBy: { [user.uid]: +((extra && extra.opening) || 0) } })
+    }));
+    return ref.id;
   }
 
-  $("gCreateHH").addEventListener("click", async () => {
-    gateMsg("gSetupErr", "");
-    const user = auth.currentUser; if (!user) return;
-    const n1 = $("gName1").value.trim() || "Me", n2 = $("gName2").value.trim() || "My wife";
-    const b = $("gCreateHH"); busy(b, true, "Setting up…");
-    try {
-      const ref = F.doc(F.collection(db, "households"));
-      await F.setDoc(ref, {
-        members: [user.uid],
-        personOf: { [user.uid]: "p1" },
-        created: Date.now(),
-        joinUntil: Date.now() + 7 * 864e5,
-        settings: { currency: "MVR", opening: 0, openingBy: { p1: 0, p2: 0 }, people: [{ id: "p1", name: n1 }, { id: "p2", name: n2 }] }
-      });
-      await linkUser(user, ref.id);
-      start(user, ref.id);
-    } catch { gateMsg("gSetupErr", "Couldn't create the household. Check your connection and try again."); busy(b, false); }
-  });
-  $("gJoinHH").addEventListener("click", async () => {
-    gateMsg("gSetupErr", "");
-    const user = auth.currentUser; if (!user) return;
-    let code = $("gJoinCode").value.trim();
-    const m = code.match(/join=([A-Za-z0-9]+)/); if (m) code = m[1];
-    if (!/^[A-Za-z0-9]{10,40}$/.test(code)) return gateMsg("gSetupErr", "That code doesn't look right. Copy the whole code or link from your partner's Settings.");
-    const b = $("gJoinHH"); busy(b, true, "Joining…");
-    try {
-      const ref = F.doc(db, "households", code);
-      await F.updateDoc(ref, { members: F.arrayUnion(user.uid), ["personOf." + user.uid]: "p2" });
-      await linkUser(user, code);
-      if (joinCode) history.replaceState(null, "", location.pathname);
-      start(user, code);
-    } catch (e) {
-      gateMsg("gSetupErr", e && e.code === "not-found" ? "No household has that code. Check it with your partner." :
-        e && e.code === "permission-denied" ? "This invite link has expired or the household is full. Ask your partner to tap Open invitations in Settings, then try again." :
-        "Couldn't join. Check your connection and try again.");
-      busy(b, false);
+  // One-time move from the old shared household to: your private space + a "Household" group.
+  async function migrate(user, hid, udata) {
+    const hs = await getSnap(H(hid)); if (!hs || !hs.exists()) return null;
+    const hh = hs.data();
+    const pOf = hh.personOf || {}, mine = pOf[user.uid] || "p1";
+    const st = hh.legacy || hh.settings || {}, people = st.people || [];
+    const uidOf = pid => Object.keys(pOf).find(u => pOf[u] === pid) || pid;
+    const me = people.find(p => p.id === mine) || { name: (user.email || "Me").split("@")[0] };
+    const budgets = st.budgets || {};
+    const personal = await createPersonal(user, me.name, {
+      me: { bank: me.bank || "", acct: me.acct || "", color: me.color || "" },
+      opening: ((st.openingBy || {})[mine]) || 0,
+      settings: { currency: st.currency || "MVR", budgets: budgets[mine] ? { [user.uid]: budgets[mine] } : {} },
+      top: { ai: hh.ai || { server: false }, gemini: hh.gemini || { key: "" } }
+    });
+    const read = async col => (await F.getDocs(F.collection(H(hid), col))).docs.map(d => Object.assign({ id: d.id }, d.data()));
+    const [entries, goals, loans, recurring, settlements] = await Promise.all(["entries", "goals", "loans", "recurring", "settlements"].map(read));
+    const isOwnerFirst = (hh.members || [])[0] === user.uid;
+    let batch = F.writeBatch(db), n = 0;
+    const flush = async () => { if (n) { await batch.commit(); batch = F.writeBatch(db); n = 0; } };
+    const op = async fn => { fn(batch); if (++n >= 400) await flush(); };
+    const clean = o => { const c = JSON.parse(JSON.stringify(o)); delete c.id; return c; };
+    const toPersonal = async (col, x, patch) => {
+      await op(b => b.set(F.doc(F.collection(H(personal), col), x.id), clean(Object.assign({}, x, patch, { author: user.uid }))));
+      await op(b => b.delete(F.doc(F.collection(H(hid), col), x.id)));
+    };
+    const stayGroup = async (col, x, patch) => op(b => b.set(F.doc(F.collection(H(hid), col), x.id), clean(Object.assign({}, x, patch, { author: user.uid }))));
+    const minePerson = x => (x.person || "p1") === mine;
+    const sharedGoals = new Set(goals.filter(g => g.owner === "shared").map(g => g.id));
+    for (const e of entries.filter(minePerson)) {
+      if ((e.split && e.split.with) || (e.goalId && sharedGoals.has(e.goalId))) await stayGroup("entries", e, e.split ? { person: user.uid, split: Object.assign({}, e.split, { with: uidOf(e.split.with) }) } : { person: user.uid });
+      else await toPersonal("entries", e, { person: user.uid });
     }
+    for (const l of loans.filter(minePerson)) await toPersonal("loans", l, { person: user.uid });
+    for (const r of recurring.filter(minePerson)) await toPersonal("recurring", r, { person: user.uid });
+    for (const g of goals) {
+      if (g.owner === mine) await toPersonal("goals", g, { owner: user.uid });
+      else if (g.owner === "shared" && isOwnerFirst) await stayGroup("goals", g, {});
+    }
+    if (isOwnerFirst) for (const s of settlements) await stayGroup("settlements", s, { from: uidOf(s.from), to: uidOf(s.to) });
+    await flush();
+    // turn the old household into a group (first person to update does this)
+    if (hh.type !== "group") {
+      const names = {}, colors = {};
+      people.forEach(p => { const u = uidOf(p.id); if ((hh.members || []).includes(u)) { names[u] = p.name; if (p.color) colors[u] = p.color; } });
+      const gb = {}; if (budgets.all) gb.all = budgets.all;
+      await F.updateDoc(H(hid), { type: "group", name: "Household", owner: (hh.members || [user.uid])[0], names, colors, legacy: st,
+        settings: { currency: st.currency || "MVR", opening: 0, budgets: gb } });
+    } else {
+      await F.updateDoc(H(hid), { ["names." + user.uid]: me.name });
+    }
+    await F.setDoc(U(user.uid), { personal, spaces: F.arrayUnion(hid), name: me.name, email: user.email || "" }, { merge: true });
+    return personal;
+  }
+
+  async function joinGroup(user, code, name) {
+    await F.updateDoc(H(code), { members: F.arrayUnion(user.uid), ["names." + user.uid]: name || (user.email || "Member").split("@")[0] });
+    await F.setDoc(U(user.uid), { spaces: F.arrayUnion(code) }, { merge: true });
+  }
+
+  async function loadSpaces(user, udata) {
+    const ps = await getSnap(H(udata.personal));
+    const aiOn = d => !!(d && d.ai && d.ai.server);
+    const list = [{ id: udata.personal, name: "Me", type: "personal", role: "member", ai: aiOn(ps && ps.exists() && ps.data()) }];
+    for (const id of [...new Set(udata.spaces || [])]) {
+      const s = await getSnap(H(id));
+      if (s && s.exists() && (s.data().members || []).includes(user.uid)) list.push({ id, name: s.data().name || "Group", type: "group", role: "member", owner: s.data().owner, ai: aiOn(s.data()) });
+    }
+    try {
+      const q = await F.getDocs(F.query(F.collection(db, "viewRequests"), F.where("from", "==", user.uid), F.where("status", "==", "accepted")));
+      q.docs.forEach(d => { const r = d.data(); if (r.space) list.push({ id: r.space, name: (r.toName || "Someone") + "'s", type: "personal", role: "viewer", req: d.id }); });
+    } catch {}
+    return list;
+  }
+
+  async function enter(user) {
+    showGate("gLoading");
+    let us = await getSnap(U(user.uid));
+    let udata = us && us.exists() ? us.data() : {};
+    try {
+      if (!udata.personal && udata.household) { await migrate(user, udata.household, udata); us = await getSnap(U(user.uid)); udata = us.data(); }
+    } catch (err) { console.error(err); $("gLoadingMsg").textContent = "Couldn't finish updating your data. Check your connection and reopen the app."; return; }
+    if (!udata.personal) { $("gWho").textContent = user.email || ""; showGate("gSetup"); if (joinCode) $("gJoinCode").focus(); else $("gMyName").focus(); return; }
+    if (joinCode && !(udata.spaces || []).includes(joinCode)) {
+      try { await joinGroup(user, joinCode, udata.name); udata.spaces = (udata.spaces || []).concat(joinCode); localStorage.setItem("pl-space-" + user.uid, joinCode); }
+      catch (e) { alertJoin(e); }
+      history.replaceState(null, "", location.pathname);
+    }
+    const spaces = await loadSpaces(user, udata);
+    let cur = ""; try { cur = localStorage.getItem("pl-space-" + user.uid) || ""; } catch {}
+    const space = spaces.find(s => s.id === cur) || spaces[0];
+    start(user, space, spaces, udata);
+  }
+  function alertJoin(e) {
+    const t = e && e.code === "not-found" ? "No group has that code." : e && e.code === "permission-denied" ? "That invite link has expired. Ask for a new one (Settings › Open invitations)." : "Couldn't join that group.";
+    try { sessionStorage.setItem("pl-join-msg", t); } catch {}
+  }
+
+  $("gContinue").addEventListener("click", async () => {
+    gateMsg("gSetupErr", "");
+    const user = auth.currentUser; if (!user) return;
+    const name = $("gMyName").value.trim();
+    if (!name) return gateMsg("gSetupErr", "Enter your name.");
+    const code = codeFrom($("gJoinCode").value);
+    if ($("gJoinCode").value.trim() && !code) return gateMsg("gSetupErr", "That invite code doesn't look right. Copy the whole link or code.");
+    const b = $("gContinue"); busy(b, true, "Setting up…");
+    try {
+      const personal = await createPersonal(user, name);
+      await F.setDoc(U(user.uid), { personal, name, email: user.email || "", spaces: [] }, { merge: true });
+      if (code) { try { await joinGroup(user, code, name); localStorage.setItem("pl-space-" + user.uid, code); } catch (e) { alertJoin(e); } }
+      if (joinCode) history.replaceState(null, "", location.pathname);
+      enter(user);
+    } catch { gateMsg("gSetupErr", "Couldn't set up. Check your connection and try again."); busy(b, false); }
   });
   $("gSignout").addEventListener("click", () => A.signOut(auth));
 
   // ---- start the money screens ----
   let started = false;
-  function start(user, hid) {
+  function start(user, space, spaces, udata) {
     if (started) return; started = true;
     $("gate").hidden = true;
     window.PL.boot({
-      F, db, hid, user, app, sdk: SDK,
+      F, db, hid: space.id, space, spaces, profile: udata, user, app, sdk: SDK,
+      switchTo: id => { try { localStorage.setItem("pl-space-" + user.uid, id); } catch {} location.reload(); },
+      joinGroup: code => joinGroup(user, code, udata.name),
       signOut: async () => { await A.signOut(auth); location.reload(); }
     });
   }
@@ -148,10 +225,7 @@ async function main() {
   A.onAuthStateChanged(auth, async user => {
     if (started) { if (!user) location.reload(); return; }
     if (!user) { showGate("gSignin"); return; }
-    showGate("gLoading");
-    const hid = await findHousehold(user);
-    if (hid) start(user, hid);
-    else { $("gWho").textContent = user.email || ""; showGate("gSetup"); if (joinCode) $("gJoinCode").focus(); }
+    enter(user);
   });
 }
 
