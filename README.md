@@ -1,22 +1,25 @@
 # Pocket Ledger
 
-A household money tracker for two people: monthly income, spending, what's left, savings and savings goals, plus scanning of receipts and bank screenshots.
+A personal and household money tracker: monthly income, spending, what's left, savings and goals, loans, bills and reminders, budgets, receipt and bank-screenshot scanning, and a chat (typing or voice) that looks things up and prepares changes for you to confirm.
 
-- Installs on Android, iPhone and computers from the browser (Install app).
-- Works offline. Changes sync when you're back online.
-- Data is stored in your own Firebase project and shared only with the people in your household.
-- Scanning uses your own Gemini API key, which stays on each device.
+- Your own entries are private ("Me"). Groups hold shared costs; only the person who added something can change it.
+- Installs on Android, iPhone and computers from the browser. Works offline; changes sync when you're back online.
+- Invite-only. Data lives in Firebase (Auth, Firestore, Cloud Functions, push).
 
 ## Files
 
-| File | What it is |
+| Path | What it is |
 |---|---|
-| `index.html` | The app screens |
-| `app.js` | Sign-in, household set-up and the connection to Firebase |
-| `config.js` | Your Firebase project settings (not secret) |
-| `sw.js`, `manifest.webmanifest`, `icons/` | What makes it installable and work offline |
-| `firestore.rules` | Security rules to paste into Firebase › Firestore › Rules |
+| `index.html`, `css/app.css` | The page shell and styles |
+| `app.js` | Sign-in, invite check, spaces, then starts the app |
+| `js/` | The app, one module per job; `js/pages/` has one file per page |
+| `config.js` | Firebase web settings (not secret) |
+| `sw.js`, `manifest.webmanifest`, `icons/` | Installable app, offline, share target, push |
+| `firestore.rules`, `functions/`, `firebase.json` | Server side (deploy from Cloud Shell) |
+| `tests/` | Browser tests with Firebase mocks |
+
+See HANDOFF.md for the full picture.
 
 ## Updating
 
-Upload the changed files to this repository again. Open apps pick up the new version the next time they're opened with an internet connection.
+Bump `VERSION` in `sw.js`, push with GitHub Desktop, then close and reopen the app on each phone.

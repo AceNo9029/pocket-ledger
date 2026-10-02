@@ -22,27 +22,37 @@ Read this first in a new conversation. It explains what the app is, how it's bui
 - Suggested (may or may not have been run): daily Firestore backups
   `gcloud firestore backups schedules create --database='(default)' --recurrence=daily --retention=7d --project=pocket-ledger-3a340`
 
-## Files in the repo root (what's deployed)
+## Files (what's deployed)
+
+No build step: GitHub Pages serves these files as they are. Plain ES modules, one job per file.
 
 | File | What it is |
 |---|---|
-| `index.html` | The whole app UI and logic (one big classic script). **Generated** by the build in `source/` — don't hand-edit. |
-| `app.js` | ES module: sign-in gate, invite-only check, migration, spaces/groups loading, then calls `window.PL.boot(...)`. |
+| `index.html` | The page shell: navigation, every page's markup, chat panel, scan sheet, lock screen, sign-in gate. |
+| `css/app.css` | All styles: theme tokens (Lagoon/Atoll/Sandbank/Monsoon/Sunset, dark, AMOLED), the frame, each page. |
+| `app.js` | Entry point: sign-in gate, invite-only check, migration of the old household, loading spaces, then `boot()` from `js/main.js`. |
 | `config.js` | Firebase web config. |
-| `sw.js` | Service worker: network-first cache, share-target, push. **Bump `VERSION` (`pl-vNN`) on every release.** Latest: `pl-v19`. |
+| `js/main.js` | `boot()`: registers pages, starts shell, scan, chat, lock; share-target and icon shortcuts. |
+| `js/store.js` | Data layer: live Firestore data for the open space, legacy p1/p2 mapping, hiding others' private things in groups, `canEdit`, all money maths (month totals, savings, goals, loans, bills, who-owes-whom, budgets), writes (deletes go to `trash`). |
+| `js/actions.js` | Shared actions: loans, repayments, bills (create/pay/skip), settle up, budgets, budget alerts. |
+| `js/shell.js` | Hash router (`#home`, `#entries`, `#loans`, `#bills`, `#goals`, `#settings/<section>`, `#admin`), page header (month, spaces, whose money), banners, bills badge. |
+| `js/pages/*.js` | One file per page: `home`, `entries` (form + list, CSV), `loans`, `bills`, `goals`, `settings` (you, appearance, groups, privacy, invites, recently deleted), `admin`. |
+| `js/gemini.js`, `js/scan.js`, `js/chat.js` | Gemini calls (server function or key), receipt/screenshot scanning sheet, chat with voice + one-tap confirm. |
+| `js/lock.js`, `js/notify.js`, `js/backup.js`, `js/util.js` | App lock, push notifications + callable helper, backup/restore/reminder, small helpers. |
+| `sw.js` | Service worker: network-first cache, share-target, push. **Bump `VERSION` (`pl-vNN`) on every release** and add any new file to `SHELL`. Latest: `pl-v20`. |
 | `manifest.webmanifest`, `icons/` | PWA manifest (share_target, shortcuts) and icons. |
 | `firestore.rules` | Security rules (see below). |
 | `functions/` | Cloud Functions: `index.js`, `alerts.js`, `package.json` (Node 22, firebase-admin 13, firebase-functions 6). |
 | `firebase.json`, `.firebaserc` | Firebase CLI config. |
+| `tests/` | Playwright scenarios + Firebase mocks (see Testing). |
 
-## How `index.html` is built (current, to be replaced by the overhaul)
+The old patch-on-patch build (`source/base`, `source/build`) was retired in the October 2026 overhaul; that folder can be deleted.
 
-The app started as a Windows desktop app. `source/base/index.html` is that original page. `source/build/build.py` reads it, applies many exact-string replacements (`rep()` asserts each match occurs once), injects the JS modules below, then runs the `*_build.py` patch files in order. It writes `index.html`.
+## Navigation
 
-- Injected JS, in order: `gemini.js`, `scan.js` (from `source/base/`, with `srep` patches), `features.js`, `chat.js`, `polish.js`, `v10.js`, `notify.js`, `groups.js`, `admin.js`, `backup.js`, `boot.js`. `backend.js` replaces the old file backend.
-- Patch files run in order: `themes_build.py`, `chat_build.py`, `features_build.py`, `polish_build.py`, `v10_build.py`, `notify_build.py`, `groups_build.py`, `admin_build.py`, `backup_build.py`.
-- `build.py` uses absolute paths from the old workspace (`/home/claude/app/web/index.html`, `/home/claude/web2/scan.js`, `/home/claude/pl-app/...`). Adjust paths if you need to run it.
-- Many functions are reassigned to wrap behaviour (`render = (o => function(){...})(render)`, same for `renderLedger`, `normalize`, `renderFormBits`, etc.). This layering is why an overhaul is planned.
+- Wide screens (900px+): vertical side menu. Phones: bottom tab bar (Home, Entries, Loans, Bills, Goals, Settings). Admin is in the side menu, and on phones under Settings › Account.
+- Header on each page: page title, month switcher (Home, Entries), space chips (Me / groups / dashboards shared with you), and in groups the "You / Sul / All of <group>" switch.
+- The chat button floats on every page. Scan opens a sheet from Home, Entries, the share sheet or the icon shortcut.
 
 ## Data model (Firestore)
 
@@ -82,14 +92,17 @@ The app started as a Windows desktop app. `source/base/index.html` is that origi
 
 ## Testing
 
-`source/tests/` has Playwright scripts (`g1`–`g7`) and Firebase mocks (`mockfb/`) that are served instead of the real gstatic SDK. The Firestore mock includes a small model of the security rules so tests catch writes the server would refuse. Run a local server on port 8765 in the repo root, then `NODE_PATH=$(npm root -g) node g1.js` etc. `g1` seeds an old-style household and checks the migration; later tests chain on `/tmp/g_state*.json` produced by earlier ones.
+`tests/` has Playwright scenarios (`g1`–`g7`) and Firebase mocks (`tests/mockfb/`) served instead of the real gstatic SDK. The Firestore mock includes a small model of the security rules so tests catch writes the server would refuse. Each test prints ok/FAIL lines and exits non-zero on a failure.
 
-## Next: the overhaul (agreed plan)
+    python3 -m http.server 8765          # in the repo root
+    cd tests && NODE_PATH=$(npm root -g) node g1.js   # then g2 … g7, in order
 
-Rebuild the front end cleanly, keeping the same Firestore data, rules and functions so nobody loses anything.
+`g1` seeds an old-style household and checks the migration; later tests chain on `pl_state*.json` in the temp folder. g1 migration · g2 second person, groups, view requests, view-only · g3 joining from a group link · g4 a new person through every page (entries, budgets, loans, bills, goals, settings, new group, wide/phone layout) · g5 invites · g6 admin · g7 trash, backup, CSV, backup reminder, chat confirm + Edit first, shortcuts.
 
-- Split the single long page into pages: **Home** (dashboard), **Entries**, **Loans**, **Bills**, **Goals**, **Settings** (with Groups, Privacy, Invites, Recently deleted inside), plus the admin page for admins. The chat button floats on every page.
-- Navigation: a **vertical side menu on wide screens** (laptop) and a **bottom tab bar on phones**.
-- Replace the patch-on-patch build with proper separate source files (plain JS modules are fine; keep it a static site on GitHub Pages).
-- Keep every feature and rule listed above; re-run the scenarios in `source/tests` against the new UI.
-- Ship carefully: bump `sw.js` VERSION; Faris and Sul should close and reopen the app after each release.
+## History
+
+- October 2026: front-end overhaul. Same Firestore data, rules and functions; the single generated page became separate modules and pages with a side menu / tab bar. Behaviour changes worth knowing: in your own space and in groups you always add things as yourself (as before), the Gemini key/model now has its own Save button, and the old "top buttons show icons/words" setting went away with the top toolbar.
+
+## Ideas not done yet
+
+- Deep links from notifications to the right page (the server sends `APP_URL`; the app supports `#bills`, `#loans`, … if the functions add them).

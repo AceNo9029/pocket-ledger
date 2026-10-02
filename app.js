@@ -1,7 +1,8 @@
-// Pocket Ledger: sign-in, household set-up and connection to Firebase.
-// The money screens live in index.html (window.PL); this file gets the
-// signed-in person and their household, then hands over to PL.boot().
+// Pocket Ledger: sign-in, invite check, space set-up and connection to Firebase.
+// The money screens live in js/ (js/main.js); this file gets the signed-in
+// person and their spaces, then hands over to boot().
 import { firebaseConfig } from "./config.js";
+import { boot } from "./js/main.js";
 
 const SDK = "12.19.0";
 const $ = id => document.getElementById(id);
@@ -264,7 +265,7 @@ async function main() {
   function start(user, space, spaces, udata) {
     if (started) return; started = true;
     $("gate").hidden = true;
-    window.PL.boot({
+    boot({
       F, db, hid: space.id, space, spaces, profile: udata, user, app, sdk: SDK, admin: !!user.plAdmin,
       switchTo: id => { try { localStorage.setItem("pl-space-" + user.uid, id); } catch {} location.reload(); },
       joinGroup: code => joinGroup(user, code, udata.name),
