@@ -2893,7 +2893,19 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     const me = meId();
     if (x.author) return x.author === me;
     if (!isGroup()) return true;
-    return (x.person || x.owner) === me || (household.owner === me && (x.owner === "shared" || !x.person));
+    if (x.owner === "shared") return household.owner === me;
+    return !!(x.person || x.owner) && (x.person || x.owner) === me;
+  }
+  // Until someone opens the new version, their old private entries still sit in
+  // the shared group. Keep those out of sight: only split costs, shared-goal
+  // savings and things added in the group itself belong there.
+  function hideOthersPrivate() {
+    if (!isGroup()) return;
+    const me = meId(), shared = new Set(state.goals.filter(g => g.owner === "shared").map(g => g.id));
+    const mineOrGroup = x => !!x.author || (x.person || x.owner) === me;
+    state.entries = state.entries.filter(e => mineOrGroup(e) || (e.split && e.split.with) || (e.goalId && shared.has(e.goalId)));
+    state.goals = state.goals.filter(g => g.owner === "shared" || mineOrGroup(g));
+    ["loans", "recurring"].forEach(k => { if (state[k]) state[k] = state[k].filter(mineOrGroup); });
   }
   function addedBy(x) { const a = x && (x.author || x.person); return a && a !== meId() && isGroup() ? pname(a) : ""; }
 
@@ -2915,6 +2927,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       else if (ui.view !== "all" && !st.people.some(p => p.id === ui.view)) ui.view = "all";
     }
     orig();
+    hideOthersPrivate();
   })(normalize);
 
   // ---------- hide change buttons on things other people added ----------
@@ -2964,7 +2977,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
     if (isViewer()) { $("readonlyBanner").hidden = false; $("readonlyBanner").innerHTML = `<span>You're looking at ${esc(SP.space.name.replace(/'s$/, ""))}'s dashboard. Only they can change it.</span>`; }
     if (!isGroup() && !isViewer()) { $("heroLabel").textContent = "Left to spend this month"; }
   }
-  render = (o => function () { o(); try { afterRenderSpaces(); } catch (e) { console.error(e); } })(render);
+  render = (o => function () { try { hideOthersPrivate(); } catch (e) {} o(); try { afterRenderSpaces(); } catch (e) { console.error(e); } })(render);
   document.addEventListener("click", ev => {
     const b = ev.target.closest("#spaceBar button[data-space]"); if (!b || !fbctx) return;
     if (SP.space && b.dataset.space === SP.space.id) return;
