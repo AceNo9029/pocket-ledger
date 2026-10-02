@@ -82,16 +82,52 @@ exports.testPush = onCall(async req => {
   return { sent: n };
 });
 
+// ---------- invite-only access ----------
+// Lets someone into Pocket Ledger: people who used it before invite-only are let in
+// automatically; everyone else needs an invite code made by an admin.
+exports.access = onCall(async req => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const uid = req.auth.uid, email = String(req.auth.token.email || "").toLowerCase();
+  const aRef = db.doc("access/" + uid);
+  const a = await aRef.get();
+  if (a.exists) return { ok: true, admin: !!a.data().admin };
+  const u = await db.doc("users/" + uid).get();
+  const ud = u.exists ? u.data() : {};
+  if (ud.personal || ud.household) {
+    // already using the app before invite-only: let them in; whoever started the original household is the admin
+    let admin = false;
+    if (ud.household) {
+      const h = await db.doc("households/" + ud.household).get();
+      const hd = h.exists ? h.data() : {};
+      admin = hd.owner ? (hd.owner === uid && !!hd.legacy) : (hd.members || [])[0] === uid;
+    }
+    await aRef.set({ ok: true, email, admin, since: Date.now(), how: "existing" });
+    return { ok: true, admin };
+  }
+  const code = String((req.data && req.data.code) || "").trim();
+  if (!code) throw new HttpsError("permission-denied", "invite-needed");
+  if (!/^[A-Za-z0-9]{6,40}$/.test(code)) throw new HttpsError("not-found", "That invite code isn't valid.");
+  const iRef = db.doc("invites/" + code);
+  const group = await db.runTransaction(async t => {
+    const s = await t.get(iRef);
+    if (!s.exists) throw new HttpsError("not-found", "That invite code isn't valid.");
+    const i = s.data();
+    if ((i.expires || 0) < Date.now()) throw new HttpsError("failed-precondition", "This invite has expired. Ask for a new one.");
+    if ((i.used || []).length >= (i.max || 1)) throw new HttpsError("failed-precondition", "This invite has already been used. Ask for a new one.");
+    t.update(iRef, { used: FieldValue.arrayUnion(uid), usedBy: FieldValue.arrayUnion(email || uid) });
+    t.set(aRef, { ok: true, email, admin: false, since: Date.now(), how: "invite", invite: code, invitedBy: i.by || null });
+    return i.group || null;
+  });
+  logger.info("invite used", { code, uid });
+  return { ok: true, admin: false, group };
+});
+
 // ---------- Gemini, with the key kept on the server ----------
 exports.gemini = onCall({ secrets: [GEMINI_KEY], timeoutSeconds: 120, memory: "512MiB" }, async req => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
   const uid = req.auth.uid;
-  const user = await db.doc("users/" + uid).get();
-  const u = user.exists ? user.data() : {};
-  const hid = u.personal || u.household;
-  if (!hid) throw new HttpsError("permission-denied", "Finish setting up Pocket Ledger first.");
-  const hh = await db.doc("households/" + hid).get();
-  if (!hh.exists || !(hh.data().members || []).includes(uid)) throw new HttpsError("permission-denied", "Not set up for Pocket Ledger.");
+  const acc = await db.doc("access/" + uid).get();
+  if (!acc.exists) throw new HttpsError("permission-denied", "Pocket Ledger is invite-only.");
   if (req.data && req.data.ping) return { ok: true };
 
   // simple daily limit per person
@@ -99,7 +135,7 @@ exports.gemini = onCall({ secrets: [GEMINI_KEY], timeoutSeconds: 120, memory: "5
   const usage = db.doc("aiUsage/" + uid + "_" + day);
   const used = await db.runTransaction(async t => {
     const s = await t.get(usage); const n = (s.exists ? s.data().n : 0) + 1;
-    t.set(usage, { n, uid, day, hid }, { merge: true }); return n;
+    t.set(usage, { n, uid, day }, { merge: true }); return n;
   });
   if (used > DAILY_AI_LIMIT) throw new HttpsError("resource-exhausted", "Daily Gemini limit reached. It resets tomorrow.");
 

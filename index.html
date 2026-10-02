@@ -447,8 +447,8 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
 .gate-brand span { color: var(--ink-3); font-size: .9rem; }
 .gate-form, .gate-sec { display: grid; gap: 12px; }
 .gate-sec { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
-#gSignin, #gSetup { display: grid; gap: 14px; }
-#gSignin[hidden], #gSetup[hidden] { display: none; }
+#gSignin, #gSetup, #gInvite { display: grid; gap: 14px; }
+#gSignin[hidden], #gSetup[hidden], #gInvite[hidden] { display: none; }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-width: calc(100% - 32px); text-align: center; z-index: 30; background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 999px; font-size: .88rem; z-index: 9; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -562,6 +562,14 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
         <div class="field"><label for="grpJoinCode">Invite link or code</label><input id="grpJoinCode" autocomplete="off" spellcheck="false"></div>
         <div><button class="ghost" id="grpJoin" type="button">Join</button></div>
       </div></details>
+    </div>
+    <div class="setsec" id="invSec" hidden>
+      <h3>Invite people to Pocket Ledger</h3>
+      <p class="hint" style="margin:0">Pocket Ledger is invite-only. Make a link for each new person. It works once and lasts 7 days.</p>
+      <div class="field"><label for="invNote">Who is it for?</label><input id="invNote" maxlength="40" placeholder="e.g. Mum"></div>
+      <div class="field"><label for="invGroup">What they get</label><select id="invGroup"></select></div>
+      <div><button class="primary" id="invMake" type="button">Make invite link</button></div>
+      <div id="invList" class="grp-list"></div>
     </div>
     <div class="setsec" id="privSec">
       <h3>Privacy</h3>
@@ -788,6 +796,18 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
         <button class="linkish" type="button" id="gForgot">Forgot password?</button>
       </form>
       <p class="hint">New here? Type your email and a password (6+ characters), then tap Create account.</p>
+    </div>
+
+    <div id="gInvite" hidden>
+      <p class="muted">Signed in as <b id="gInviteWho"></b></p>
+      <section class="gate-sec">
+        <h2>Pocket Ledger is invite-only</h2>
+        <p class="hint">Paste the invite link or code you were sent. You only need to do this once.</p>
+        <div class="field"><label for="gInviteCode">Invite link or code</label><input id="gInviteCode" autocomplete="off" spellcheck="false"></div>
+        <button class="primary" type="button" id="gInviteBtn">Continue</button>
+      </section>
+      <div class="err" id="gInviteErr" hidden></div>
+      <button class="linkish" type="button" id="gInviteOut">Use a different account</button>
     </div>
 
     <div id="gSetup" hidden>
@@ -3058,7 +3078,7 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
         <div class="grp-top"><b>${esc(d.name || g.name)}</b><small>${esc(names.join(", "))}${own ? " · you made this group" : ""}</small></div>
         ${own ? `<div class="grp-rename"><input data-rename="${esc(g.id)}" maxlength="30" value="${esc(d.name || g.name)}" aria-label="Group name"><button class="ghost" type="button" data-renameok="${esc(g.id)}">Rename</button></div>
         <div class="field"><label>Invite link</label><input readonly value="${esc(inviteUrl(g.id))}"></div>
-        <p class="hint" style="margin:0">${open ? "Invitations are open until " + esc(new Date(d.joinUntil).toLocaleDateString(undefined, { day: "numeric", month: "short" })) + ". Anyone with the link can join until then." : "Invitations are closed, so the link doesn't let anyone join."}</p>
+        <p class="hint" style="margin:0">${open ? "Invitations are open until " + esc(new Date(d.joinUntil).toLocaleDateString(undefined, { day: "numeric", month: "short" })) + ". People who already use Pocket Ledger can join with the link." + (fbctx.admin ? " For someone new, make an invite under Invite people below." : " Someone new also needs an invite from the app's admin.") : "Invitations are closed, so the link doesn't let anyone join."}</p>
         <div class="formfoot"><button class="ghost" type="button" data-copy="${esc(g.id)}">Copy link</button>${navigator.share ? `<button class="ghost" type="button" data-share="${esc(g.id)}">Share</button>` : ""}<button class="ghost" type="button" data-inv="${esc(g.id)}" data-open="${open ? 0 : 1}">${open ? "Close invitations" : "Open invitations for 7 days"}</button></div>`
         : `<div class="formfoot"><button class="ghost" type="button" data-leave="${esc(g.id)}">Leave group</button></div>`}
       </div>`;
@@ -3172,6 +3192,57 @@ details.box > div { display: grid; gap: 10px; margin-top: 12px; }
       }
       reqQueue = reqQueue.filter(x => x.id !== r.id); renderReqBar();
     } catch { toast("That didn't work. Check your connection and try again."); }
+  });
+
+  // ---------- invite-only: admins make invite links ----------
+  const appInviteUrl = (code, group) => location.origin + location.pathname + "?invite=" + code + (group ? "&join=" + group : "");
+  function newCode() { const ch = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789", a = new Uint32Array(12); crypto.getRandomValues(a); return [...a].map(n => ch[n % ch.length]).join(""); }
+  async function renderInvites() {
+    const sec = $("invSec"); if (!sec) return;
+    sec.hidden = !(fbctx && fbctx.admin);
+    if (sec.hidden) return;
+    const own = (SP.spaces || []).filter(s => s.type === "group" && s.role === "member" && s.owner === meId());
+    const gs = $("invGroup"), cur = gs.value;
+    gs.innerHTML = `<option value="">Just the app (their own space)</option>` + own.map(g => `<option value="${esc(g.id)}">Also add them to ${esc(g.name)}</option>`).join("");
+    if ([...gs.options].some(o => o.value === cur)) gs.value = cur;
+    const box = $("invList");
+    try {
+      const F = FS(); const q = await F.getDocs(F.query(F.collection(fbctx.db, "invites"), F.where("by", "==", meId())));
+      const list = q.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => (b.created || 0) - (a.created || 0));
+      const gname = id => ((SP.spaces || []).find(s => s.id === id) || {}).name || "";
+      box.innerHTML = !list.length ? `<p class="hint" style="margin:0">No invites yet.</p>` : list.map(i => {
+        const used = (i.used || []).length >= (i.max || 1), expired = (i.expires || 0) < Date.now();
+        const state = used ? "Used" + (i.usedBy && i.usedBy.length ? " by " + i.usedBy.join(", ") : "") : expired ? "Expired" : "Open until " + new Date(i.expires).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+        return `<div class="grp"><div class="grp-top"><b>${esc(i.note || "Invite")}</b><small>${esc(state)}${i.group && gname(i.group) ? " · joins " + esc(gname(i.group)) : ""}</small></div>
+          ${!used && !expired ? `<div class="field"><input readonly value="${esc(appInviteUrl(i.id, i.group))}" aria-label="Invite link"></div>` : ""}
+          <div class="formfoot">${!used && !expired ? `<button class="ghost" type="button" data-invcopy="${esc(i.id)}">Copy link</button>${navigator.share ? `<button class="ghost" type="button" data-invshare="${esc(i.id)}">Share</button>` : ""}` : ""}<button class="icon-btn" type="button" data-invdel="${esc(i.id)}">${!used && !expired ? "Cancel invite" : "Remove"}</button></div></div>`;
+      }).join("");
+      box.dataset.list = JSON.stringify(list.map(i => ({ id: i.id, group: i.group || "" })));
+    } catch { box.innerHTML = `<p class="hint" style="margin:0">Connect to the internet to see your invites.</p>`; }
+  }
+  $("settingsBtn").addEventListener("click", () => { if (fbctx && !$("settingsPanel").hidden) setTimeout(renderInvites, 0); });
+  $("invSec").addEventListener("click", async ev => {
+    const b = ev.target.closest("button"); if (!b || !fbctx) return;
+    const F = FS(), d = b.dataset;
+    const groupOf = id => ((JSON.parse($("invList").dataset.list || "[]").find(x => x.id === id)) || {}).group || "";
+    try {
+      if (b.id === "invMake") {
+        const note = $("invNote").value.trim().slice(0, 40), group = $("invGroup").value;
+        const code = newCode(), expires = Date.now() + 7 * 864e5;
+        b.disabled = true;
+        await F.setDoc(F.doc(fbctx.db, "invites", code), { by: meId(), note, group: group || null, created: Date.now(), expires, max: 1, used: [] });
+        if (group) { const gd = groupDocs[group] || (group === fbctx.hid ? household : null); if (!gd || (gd.joinUntil || 0) < expires) await F.updateDoc(hRef(group), { joinUntil: expires }); }
+        $("invNote").value = ""; b.disabled = false;
+        try { await navigator.clipboard.writeText(appInviteUrl(code, group)); toast("Invite link made and copied. It works once, for 7 days."); } catch { toast("Invite link made. It works once, for 7 days."); }
+        renderInvites();
+      } else if (d.invcopy) {
+        try { await navigator.clipboard.writeText(appInviteUrl(d.invcopy, groupOf(d.invcopy))); toast("Invite link copied"); } catch { toast("Select and copy the link"); }
+      } else if (d.invshare) {
+        navigator.share({ title: "Pocket Ledger", text: "You're invited to Pocket Ledger", url: appInviteUrl(d.invshare, groupOf(d.invshare)) }).catch(() => {});
+      } else if (d.invdel) {
+        await F.deleteDoc(F.doc(fbctx.db, "invites", d.invdel)); renderInvites();
+      }
+    } catch (e) { b.disabled = false; toast(e && e.code === "permission-denied" ? "Only the app's admin can make invites." : "That didn't work. Check your connection and try again."); }
   });
 
   // ---------- settings: this device, household, account ----------

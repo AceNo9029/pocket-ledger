@@ -7,21 +7,39 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function me() { return request.auth.uid; }
     function space(hid) { return get(/databases/$(database)/documents/households/$(hid)).data; }
-    function isMember(hid) { return signedIn() && me() in space(hid).members; }
-    function canView(hid) { let d = space(hid); return signedIn() && (me() in d.members || me() in d.get('viewers', [])); }
+    // invite-only: you're in once the server has written access/{your uid}
+    function hasAccess() { return signedIn() && exists(/databases/$(database)/documents/access/$(me())); }
+    function isAdmin() { return signedIn() && get(/databases/$(database)/documents/access/$(me())).data.get('admin', false) == true; }
+    function isMember(hid) { return hasAccess() && me() in space(hid).members; }
+    function canView(hid) { let d = space(hid); return hasAccess() && (me() in d.members || me() in d.get('viewers', [])); }
     function onlyKeys(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
     function onlyMyKey(field) { return request.resource.data.get(field, {}).diff(resource.data.get(field, {})).affectedKeys().hasOnly([me()]); }
 
     match /users/{uid} {
-      allow read, write: if signedIn() && me() == uid;
+      allow read: if signedIn() && me() == uid;
+      allow write: if hasAccess() && me() == uid;
+    }
+
+    // who's allowed in (written only by the server)
+    match /access/{uid} {
+      allow read: if signedIn() && (me() == uid || isAdmin());
+      allow write: if false;
+    }
+
+    // invite codes, made by an admin; used up on the server
+    match /invites/{code} {
+      allow create: if isAdmin() && request.resource.data.by == me() && request.resource.data.get('used', []).size() == 0
+                    && request.resource.data.expires is int && request.resource.data.max is int && request.resource.data.max <= 20;
+      allow read, delete: if isAdmin();
+      allow update: if false;
     }
 
     match /households/{hid} {
-      allow create: if signedIn() && request.resource.data.members == [me()]
+      allow create: if hasAccess() && request.resource.data.members == [me()]
                     && request.resource.data.get('owner', me()) == me()
                     && request.resource.data.get('viewers', []).size() == 0;
-      allow read: if signedIn() && (me() in resource.data.members || me() in resource.data.get('viewers', []));
-      allow update: if signedIn() && (
+      allow read: if hasAccess() && (me() in resource.data.members || me() in resource.data.get('viewers', []));
+      allow update: if hasAccess() && (
         // the owner (or any member of an old-style household that has no owner yet)
         (me() in resource.data.members && resource.data.get('owner', me()) == me())
         // a member changing only their own name / colour in a group
@@ -49,7 +67,7 @@ service cloud.firestore {
 
     // "Can I see your dashboard?" requests between people who share a group.
     match /viewRequests/{rid} {
-      allow create: if signedIn() && request.resource.data.from == me() && request.resource.data.status == 'pending'
+      allow create: if hasAccess() && request.resource.data.from == me() && request.resource.data.status == 'pending'
                     && request.resource.data.keys().hasOnly(['from', 'fromName', 'to', 'toName', 'status', 'created', 'group']);
       allow read: if signedIn() && (resource.data.from == me() || resource.data.to == me());
       allow update: if signedIn() && resource.data.to == me() && onlyKeys(['status', 'space', 'toName', 'answered']);

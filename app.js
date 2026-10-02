@@ -5,7 +5,7 @@ import { firebaseConfig } from "./config.js";
 
 const SDK = "12.19.0";
 const $ = id => document.getElementById(id);
-const VIEWS = ["gLoading", "gSignin", "gSetup", "gConfig"];
+const VIEWS = ["gLoading", "gSignin", "gInvite", "gSetup", "gConfig"];
 function showGate(view) {
   $("gate").hidden = false;
   VIEWS.forEach(v => $(v).hidden = v !== view);
@@ -76,7 +76,7 @@ async function main() {
   });
 
   // ---- spaces: your private space + groups you're in ----
-  const joinCode = new URLSearchParams(location.search).get("join") || "";
+  let joinCode = new URLSearchParams(location.search).get("join") || "";
   if (joinCode) $("gJoinCode").value = joinCode;
   const H = id => F.doc(db, "households", id);
   const U = uid => F.doc(db, "users", uid);
@@ -168,8 +168,57 @@ async function main() {
     return list;
   }
 
-  async function enter(user) {
+  // ---- invite-only: you need an invite code once (people who used the app before are let in) ----
+  let inviteFromUrl = new URLSearchParams(location.search).get("invite") || "";
+  let fnsP = null;
+  const callAccess = async data => {
+    if (!fnsP) fnsP = import(`https://www.gstatic.com/firebasejs/${SDK}/firebase-functions.js`).then(m => m.httpsCallable(m.getFunctions(app, "asia-south1"), "access", { timeout: 30000 }));
+    return (await (await fnsP)(data || {})).data || {};
+  };
+  const accKey = uid => "pl-acc-" + uid;
+  async function ensureAccess(user, code) {
+    const a = await getSnap(F.doc(db, "access", user.uid));
+    if (a && a.exists()) { const v = { admin: !!a.data().admin }; try { localStorage.setItem(accKey(user.uid), JSON.stringify(v)); } catch {} return v; }
+    try { const c = localStorage.getItem(accKey(user.uid)); if (c && !navigator.onLine) return JSON.parse(c); } catch {}
+    const r = await callAccess(code ? { code } : {});
+    try { localStorage.setItem(accKey(user.uid), JSON.stringify({ admin: !!r.admin })); } catch {}
+    return r;
+  }
+  const accessMsg = e => {
+    const m = String((e && e.message) || ""), c = String((e && e.code) || "").replace("functions/", "");
+    if (c === "permission-denied" || /invite-needed/.test(m)) return "";
+    if (c === "not-found") return "That invite code isn't valid. Check it and try again.";
+    if (c === "failed-precondition") return m || "That invite can't be used any more. Ask for a new one.";
+    return "Couldn't check your invite. Check your connection and try again.";
+  };
+  let pendingUser = null;
+  $("gInviteBtn").addEventListener("click", async () => {
+    gateMsg("gInviteErr", "");
+    let code = $("gInviteCode").value.trim(); const m = code.match(/invite=([A-Za-z0-9]+)/); if (m) code = m[1];
+    if (!/^[A-Za-z0-9]{6,40}$/.test(code)) return gateMsg("gInviteErr", "Paste the invite link or code you were sent.");
+    const b = $("gInviteBtn"); busy(b, true, "Checking…");
+    try { await ensureAccess(pendingUser, code); busy(b, false); enter(pendingUser, true); }
+    catch (e) { busy(b, false); gateMsg("gInviteErr", accessMsg(e) || "That invite code isn't valid."); }
+  });
+  $("gInviteOut").addEventListener("click", async () => { await A.signOut(auth); location.replace(location.pathname); });
+
+  async function enter(user, accessOk) {
     showGate("gLoading");
+    if (!accessOk) {
+      try { const acc = await ensureAccess(user, inviteFromUrl); user.plAdmin = !!acc.admin; }
+      catch (e) {
+        const msg = accessMsg(e);
+        // server not reachable / not set up yet: people who already use the app carry on (the database rules still decide)
+        if (msg && !inviteFromUrl) {
+          const us0 = await getSnap(U(user.uid)); const d0 = us0 && us0.exists() ? us0.data() : {};
+          if (d0.personal || d0.household) return enter(user, true);
+        }
+        pendingUser = user; $("gInviteWho").textContent = user.email || "";
+        if (inviteFromUrl) $("gInviteCode").value = inviteFromUrl;
+        gateMsg("gInviteErr", msg); showGate("gInvite"); return;
+      }
+      if (inviteFromUrl) { inviteFromUrl = ""; try { history.replaceState(null, "", location.pathname + (joinCode ? "?join=" + joinCode : "")); } catch {} }
+    } else { try { user.plAdmin = !!JSON.parse(localStorage.getItem(accKey(user.uid)) || "{}").admin; } catch {} }
     let us = await getSnap(U(user.uid));
     let udata = us && us.exists() ? us.data() : {};
     try {
@@ -179,7 +228,7 @@ async function main() {
     if (joinCode && !(udata.spaces || []).includes(joinCode)) {
       try { await joinGroup(user, joinCode, udata.name); udata.spaces = (udata.spaces || []).concat(joinCode); localStorage.setItem("pl-space-" + user.uid, joinCode); }
       catch (e) { alertJoin(e); }
-      history.replaceState(null, "", location.pathname);
+      history.replaceState(null, "", location.pathname); joinCode = "";
     }
     const spaces = await loadSpaces(user, udata);
     let cur = ""; try { cur = localStorage.getItem("pl-space-" + user.uid) || ""; } catch {}
@@ -203,7 +252,7 @@ async function main() {
       const personal = await createPersonal(user, name);
       await F.setDoc(U(user.uid), { personal, name, email: user.email || "", spaces: [] }, { merge: true });
       if (code) { try { await joinGroup(user, code, name); localStorage.setItem("pl-space-" + user.uid, code); } catch (e) { alertJoin(e); } }
-      if (joinCode) history.replaceState(null, "", location.pathname);
+      if (joinCode) { history.replaceState(null, "", location.pathname); joinCode = ""; }
       enter(user);
     } catch { gateMsg("gSetupErr", "Couldn't set up. Check your connection and try again."); busy(b, false); }
   });
@@ -215,7 +264,7 @@ async function main() {
     if (started) return; started = true;
     $("gate").hidden = true;
     window.PL.boot({
-      F, db, hid: space.id, space, spaces, profile: udata, user, app, sdk: SDK,
+      F, db, hid: space.id, space, spaces, profile: udata, user, app, sdk: SDK, admin: !!user.plAdmin,
       switchTo: id => { try { localStorage.setItem("pl-space-" + user.uid, id); } catch {} location.reload(); },
       joinGroup: code => joinGroup(user, code, udata.name),
       signOut: async () => { await A.signOut(auth); location.reload(); }
