@@ -15,6 +15,7 @@ import { initLock } from "./lock.js";
 import { refreshPush } from "./notify.js";
 import { initNag, renderNag } from "./backup.js";
 import { aiReady } from "./gemini.js";
+import { initTransfers, checkTransfers } from "./transfers.js";
 
 // a screenshot shared into the app from another app (Android share sheet)
 async function takeSharedFiles() {
@@ -45,7 +46,7 @@ function handleShortcut() {
 
 export function boot(fb) {
   [["home", home], ["entries", entries], ["loans", loans], ["bills", bills], ["goals", goals], ["settings", settings], ["admin", admin]].forEach(([id, p]) => { registerPage(id, p); p.init(); });
-  initShell(); initScan(); initStatements(); initChat(); initLock(); initNag();
+  initShell(); initScan(); initStatements(); initTransfers(); initChat(); initLock(); initNag();
   $("quickX").addEventListener("click", () => { $("quick").hidden = true; });
   document.addEventListener("click", ev => { const b = ev.target.closest("[data-go-add]"); if (b) focusAdd("expense"); });
   connect(fb);
@@ -54,7 +55,7 @@ export function boot(fb) {
   route();
   try { const m = sessionStorage.getItem("pl-join-msg"); if (m) { sessionStorage.removeItem("pl-join-msg"); setTimeout(() => toast(m), 800); } } catch {}
   (function waitReady() {
-    if (state.ready) { takeSharedFiles(); handleShortcut(); refreshPush(); checkRequests(); lastSeenMark(); }
+    if (state.ready) { takeSharedFiles(); handleShortcut(); refreshPush(); checkRequests(); checkTransfers(); lastSeenMark(); }
     else setTimeout(waitReady, 300);
   })();
   window.PL = { go, ctx, state };

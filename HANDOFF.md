@@ -39,7 +39,7 @@ No build step: GitHub Pages serves these files as they are. Plain ES modules, on
 | `js/pages/*.js` | One file per page: `home`, `entries` (form + list, CSV), `loans`, `bills`, `goals`, `settings` (you, appearance, groups, privacy, invites, recently deleted), `admin`. |
 | `js/gemini.js`, `js/scan.js`, `js/chat.js` | Gemini calls (server function or key), receipt/screenshot scanning sheet, chat with voice + one-tap confirm. |
 | `js/lock.js`, `js/notify.js`, `js/backup.js`, `js/util.js` | App lock, push notifications + callable helper, backup/restore/reminder, small helpers. |
-| `sw.js` | Service worker: network-first cache, share-target, push. **Bump `VERSION` (`pl-vNN`) on every release** and add any new file to `SHELL`. Latest: `pl-v22`. `index.html` loads `app.js?v=NN` and `css/app.css?v=NN`: bump those numbers too, so phones never mix a new page with old cached files (that caused a blank page after the first overhaul release). |
+| `sw.js` | Service worker: network-first cache, share-target, push. **Bump `VERSION` (`pl-vNN`) on every release** and add any new file to `SHELL`. Latest: `pl-v23`. `index.html` loads `app.js?v=NN` and `css/app.css?v=NN`: bump those numbers too, so phones never mix a new page with old cached files (that caused a blank page after the first overhaul release). |
 | `manifest.webmanifest`, `icons/` | PWA manifest (share_target, shortcuts) and icons. |
 | `firestore.rules` | Security rules (see below). |
 | `functions/` | Cloud Functions: `index.js`, `alerts.js`, `package.json` (Node 22, firebase-admin 13, firebase-functions 6). |
@@ -58,7 +58,7 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
 
 - `users/{uid}`: `personal` (id of their private space), `spaces[]` (group ids), `name`, `email`, `tokens[]` (FCM), `notify {bills, budgets, loans}`, `lastSeen`. Legacy: `household`.
 - `households/{id}` = a **space**. `type: "personal" | "group"`, `owner`, `members[]`, `viewers[]` (people allowed to view a personal space), group `name`, `names {uid: name}`, `colors {uid: hex}`, `joinUntil` (ms; invite link open until), `settings {currency, opening, openingBy {uid}, people [...] (personal only), budgets {all|uid: {category: limit}}}`, `ai {server}`, `gemini {key}` (legacy), `alertState`. Legacy fields kept on the converted old household: `personOf {uid: "p1"|"p2"}`, `legacy` (old settings).
-  - Subcollections: `entries`, `goals`, `loans`, `recurring`, `settlements`, `trash`. Every doc has `author` (uid of who added it).
+  - Subcollections: `entries`, `goals`, `loans`, `recurring`, `settlements`, `trash`; groups also have `transfers`, personal spaces `transfersSeen`. Every doc has `author` (uid of who added it).
   - Entry: `type` (expense|income|save|withdraw), `amount`, `date` (YYYY-MM-DD), `category`, `note` (≤160), `person` (uid), `created`, optional `goalId`, `split {with, share}`, `countMonth` (YYYY-MM it counts for), `loanId`/`loanRole`, `recurringId`, `ref` (bank ref), `source`.
   - Goal: `name`, `target`, `by` (target month YYYY-MM — note `by` means deadline, NOT creator), `owner` (uid or "shared").
   - Recurring (bills/reminders): `type, amount, category, note, person, day, remindDays, startMonth, skips[], paused`. Paying creates entry id `rec-{rid}-{YYYY-MM}`. Never auto-added.
@@ -88,6 +88,7 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
 ## Server functions (`functions/index.js`, region asia-south1)
 
 - `dailyAlerts` (08:30 Indian/Maldives): bills/budgets/loans alerts via FCM (`alerts.js`).
+- `notifyTransfer` (callable): push to the receiver when someone records money sent to them; checks the caller is the sender and both are in the group.
 - `testPush`, `gemini` (needs `access/{uid}`; daily per-person limit from `config/app.aiLimit` or 300; model chain gemini-3.8-flash → 3.7-flash → 3.5-flash → 3.5-flash-lite), `access` (invite redemption / grandfathering; refuses `revoked`), `admin` (overview, revoke, restore, makeAdmin, removeAdmin, deleteWaiting, setLimit).
 
 ## Testing
@@ -112,6 +113,15 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
 - Imported entries carry `source: "statement"`, `importId`, `importLabel` and the bank `ref`; Undo (in the summary or Settings › Backup) deletes that batch for good.
 - Settings › Your details has a list of bank accounts (bank, nickname, last 4). Stored as `people[0].accounts`; `acct` is kept as the comma list of last-4s for scanning.
 - Tested by `tests/g8.js` with made-up data. Never commit a real statement: the repo is public.
+
+## Money sent between people (added Oct 2026)
+
+- Entries page › "Send money to someone in your group" (`js/transfers.js`). It only records a transfer; it doesn't move money.
+- The sender writes `households/{group}/transfers/{id}` `{from, fromName, to, toName, amount, date, note, created, author}`. "On your side": not counted, or an expense in the sender's own space (`xfer-out-{group}-{id}`).
+- The receiver's app finds transfers `to == me` in their groups and shows a card on every page: edit note, category (or "don't count it"), date, then Accept (income `xfer-{group}-{id}` in their own space) or Decline. Answers are kept in `transfersSeen/{group}_{id}` in their own space, so cards don't come back. Nothing is added to the group's own entries.
+- Everyone in that group can read its transfers (amount and remark).
+- Statement imports skip the bank's copy of an accepted transfer (same amount within 2 days).
+- Push: `notifyTransfer`, per-person setting `notify.transfers` (Settings › Notifications › Money sent to you).
 
 ## Ideas not done yet
 

@@ -1,5 +1,5 @@
 export const getFunctions = () => ({});
-export const httpsCallable = (f, name) => async data => { window.__calls = (window.__calls || []).concat(name); if (name === "testPush") return { data: { sent: 1 } };
+export const httpsCallable = (f, name) => async data => { window.__calls = (window.__calls || []).concat(name); if (name === "testPush") return { data: { sent: 1 } }; if (name === "notifyTransfer") { window.__notified = (window.__notified || []).concat(data); return { data: { sent: 1 } }; }
   if (name === "admin") {
     const e = localStorage.getItem("mock-cur"), uid = "uid_" + e.replace(/\W/g, ""), db = JSON.parse(localStorage.getItem("mock-db") || "{}");
     const save = () => localStorage.setItem("mock-db", JSON.stringify(db)); const fail = (code, m) => { const x = new Error(m); x.code = "functions/" + code; throw x; };

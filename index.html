@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="css/app.css?v=22">
+<link rel="stylesheet" href="css/app.css?v=23">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -83,6 +83,7 @@
 
     <div class="banner" id="readonlyBanner" hidden></div>
     <div class="banner info" id="reqBar" hidden></div>
+    <div class="xfer-bar" id="xferBar" hidden></div>
     <div class="banner info" id="backupNag" hidden></div>
 
     <!-- ===================== HOME ===================== -->
@@ -162,7 +163,7 @@
 
         <section class="panel" id="formPanel">
           <button class="scanbig" type="button" data-scan="1"><svg class="ico"><use href="#i-cam"/></svg><span><b>Scan a receipt or screenshot</b><small>Take a photo or pick one. I'll fill in the details and ask if anything's unclear.</small></span></button>
-          <button class="linkish stmt-link" type="button" data-statement="1">Import a bank statement (PDF or CSV)</button>
+          <div class="side-links"><button class="linkish" type="button" data-statement="1">Import a bank statement (PDF or CSV)</button><button class="linkish" type="button" data-xfer="1">Send money to someone in your group</button></div>
           <div class="panel-head"><h2 id="formTitle">Add an entry</h2><button class="icon-btn" type="button" id="cancelEdit" hidden>Cancel edit</button></div>
           <div class="seg" role="group" aria-label="Entry type">
             <button type="button" data-t="expense" aria-pressed="true">Spent</button>
@@ -346,6 +347,7 @@
           <label class="check"><input type="checkbox" id="ntBills" checked><span>Bills &amp; reminders<small>When a bill turns amber, then red</small></span></label>
           <label class="check"><input type="checkbox" id="ntBudgets" checked><span>Budgets<small>At 80% and when you go over</small></span></label>
           <label class="check"><input type="checkbox" id="ntLoans" checked><span>Loans<small>3 days before the due date, and when overdue</small></span></label>
+          <label class="check"><input type="checkbox" id="ntXfer" checked><span>Money sent to you<small>When someone sends you money in Pocket Ledger</small></span></label>
         </div>
         <p class="hint">Your choices apply to all your devices. Alerts are checked every morning at 8:30.</p>
       </section>
@@ -428,6 +430,23 @@
   <form class="chat-form" id="chatForm"><button class="mic" id="chatMic" type="button" aria-label="Speak"><svg class="ico"><use href="#i-mic"/></svg></button><textarea id="chatInput" rows="1" placeholder="Ask, or tap the mic" aria-label="Your message"></textarea><button class="primary" id="chatSend" type="submit">Ask</button><button class="ghost" id="chatStop" type="button" hidden>Stop</button></form>
 </section>
 
+<div class="sheet-wrap" id="xferSendWrap" hidden>
+  <section class="sheet" aria-label="Send money">
+    <div class="panel-head"><h2>Send money</h2><button class="icon-btn" type="button" id="xsClose">Close</button></div>
+    <p class="hint">This records money you've sent (by bank transfer, cash, etc.). The other person gets a card to accept it into their own income. It doesn't move any money.</p>
+    <div class="form">
+      <div class="row2">
+        <div class="field"><label for="xsTo">To</label><select id="xsTo"></select></div>
+        <div class="field"><label for="xsAmt">Amount</label><input id="xsAmt" class="num" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></div>
+        <div class="field"><label for="xsDate">Date</label><input id="xsDate" type="date"></div>
+        <div class="field"><label for="xsSide">On your side</label><select id="xsSide"></select></div>
+      </div>
+      <div class="field"><label for="xsNote">Remark <span class="muted">(they'll see this)</span></label><input id="xsNote" maxlength="160" placeholder="e.g. Fees from Aisha's mum, October"></div>
+      <div class="err" id="xsErr" hidden></div>
+      <div class="formfoot"><button class="primary" type="button" id="xsSend">Send</button></div>
+    </div>
+  </section>
+</div>
 <div class="sheet-wrap" id="scanWrap" hidden>
   <section class="sheet scan" id="scanPanel" aria-live="polite" aria-label="Scan">
     <div class="panel-head"><h2 id="scanTitle">Reading your image…</h2><button class="icon-btn" type="button" id="scanClose">Close</button></div>
@@ -515,6 +534,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="app.js?v=22"></script>
+<script type="module" src="app.js?v=23"></script>
 </body>
 </html>

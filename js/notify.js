@@ -39,8 +39,8 @@ export async function renderSettings() {
   $("ntState").textContent = on ? "On for this device. You'll get the ones ticked below, even when the app is closed." : ("Notification" in window && Notification.permission === "denied") ? "Blocked for this app in your phone's settings." : "Off on this device.";
   $("ntOn").hidden = on; $("ntTest").hidden = !on; $("ntOff").hidden = !on;
   try {
-    const s = await ctx.F.getDoc(uRef()); const p = Object.assign({ bills: true, budgets: true, loans: true }, (s.exists() && s.data().notify) || {});
-    $("ntBills").checked = p.bills; $("ntBudgets").checked = p.budgets; $("ntLoans").checked = p.loans;
+    const s = await ctx.F.getDoc(uRef()); const p = Object.assign({ bills: true, budgets: true, loans: true, transfers: true }, (s.exists() && s.data().notify) || {});
+    $("ntBills").checked = p.bills; $("ntBudgets").checked = p.budgets; $("ntLoans").checked = p.loans; $("ntXfer").checked = p.transfers;
   } catch {}
 }
 export function initSettings() {
@@ -61,7 +61,7 @@ export function initSettings() {
     catch (e) { toast(serverMissing(e) ? "The notification server isn't set up yet." : (e && e.message) || "Couldn't send a test."); }
     $("ntTest").disabled = false;
   });
-  ["ntBills", "ntBudgets", "ntLoans"].forEach(id => $(id).addEventListener("change", () => {
-    ctx.F.setDoc(uRef(), { notify: { bills: $("ntBills").checked, budgets: $("ntBudgets").checked, loans: $("ntLoans").checked } }, { merge: true }).catch(() => toast("Couldn't save that. Check your connection."));
+  ["ntBills", "ntBudgets", "ntLoans", "ntXfer"].forEach(id => $(id).addEventListener("change", () => {
+    ctx.F.setDoc(uRef(), { notify: { bills: $("ntBills").checked, budgets: $("ntBudgets").checked, loans: $("ntLoans").checked, transfers: $("ntXfer").checked } }, { merge: true }).catch(() => toast("Couldn't save that. Check your connection."));
   }));
 }

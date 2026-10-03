@@ -534,3 +534,10 @@ body.readonly .hero-acts [data-go-add], body.readonly .hero-acts [data-scan] { d
 .imp-stats small { color: var(--ink-3); font-size: .8rem; }
 .imp-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .85rem; max-height: 260px; overflow-y: auto; }
 .imp-list li { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px dashed var(--line); padding-bottom: 3px; }
+.side-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; margin-top: -4px; }
+.side-links .linkish { font-size: .86rem; padding: 0; }
+/* money sent to you */
+.xfer-bar { display: grid; gap: 10px; }
+.xfer-card { background: var(--surface); border: 1px solid var(--accent); border-left-width: 5px; border-radius: 12px; padding: 12px 14px; display: grid; gap: 10px; }
+.xfer-top { display: grid; gap: 2px; } .xfer-top small { color: var(--ink-3); }
+.xfer-card .row2 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }

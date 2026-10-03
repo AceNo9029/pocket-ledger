@@ -2,6 +2,7 @@
 //  - dailyAlerts: every morning, sends bill / budget / loan notifications.
 //  - gemini:      runs Gemini for signed-in household members, so the key never reaches phones.
 //  - testPush:    sends a test notification to the caller's devices.
+//  - notifyTransfer: tells someone that money was sent to them in the app.
 "use strict";
 
 const { initializeApp } = require("firebase-admin/app");
@@ -33,7 +34,7 @@ async function sendTo(uids, title, body, kind) {
     const snap = await ref.get();
     if (!snap.exists) continue;
     const u = snap.data();
-    const prefs = Object.assign({ bills: true, budgets: true, loans: true }, u.notify || {});
+    const prefs = Object.assign({ bills: true, budgets: true, loans: true, transfers: true }, u.notify || {});
     if (kind && prefs[kind] === false) continue;
     const tokens = (u.tokens || []).filter(Boolean);
     if (!tokens.length) continue;
@@ -262,4 +263,23 @@ exports.gemini = onCall({ secrets: [GEMINI_KEY], timeoutSeconds: 120, memory: "5
   if (status === 429) throw new HttpsError("resource-exhausted", msg || "Gemini is busy. Try again in a minute.");
   if (status === 400 && /api.?key/i.test(msg)) throw new HttpsError("failed-precondition", "The server's Gemini key isn't valid.");
   throw new HttpsError("unavailable", "HTTP " + status + ": " + msg);
+});
+
+// Someone recorded money sent to another person in a group they share: let the receiver know.
+exports.notifyTransfer = onCall(async req => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const uid = req.auth.uid, { gid, tid } = req.data || {};
+  const okId = v => typeof v === "string" && /^[A-Za-z0-9_-]{1,100}$/.test(v);
+  if (!okId(gid) || !okId(tid)) throw new HttpsError("invalid-argument", "Bad transfer.");
+  const ref = db.doc("households/" + gid + "/transfers/" + tid), snap = await ref.get();
+  if (!snap.exists) throw new HttpsError("not-found", "No such transfer.");
+  const t = snap.data();
+  if (t.from !== uid || t.author !== uid) throw new HttpsError("permission-denied", "Not your transfer.");
+  if (t.notified) return { sent: 0 };
+  const g = (await db.doc("households/" + gid).get()).data() || {};
+  if (!(g.members || []).includes(uid) || !(g.members || []).includes(t.to)) throw new HttpsError("permission-denied", "Not in this group.");
+  const amt = "MVR " + Number(t.amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const sent = await sendTo([t.to], (t.fromName || "Someone") + " sent you " + amt, (t.note ? t.note + ". " : "") + "Open Pocket Ledger to accept it.", "transfers");
+  await ref.update({ notified: Date.now() });
+  return { sent };
 });
