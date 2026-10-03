@@ -3,14 +3,14 @@ const { start, loadState, URL0 } = require("./lib");
 const fs = require("fs");
 
 (async () => {
-  const T = await start({ seed: loadState("2"), users: { "faris@x.com": "secret12" } }), { p, check } = T;
+  const T = await start({ seed: loadState("2"), users: { "adam@x.com": "secret12" } }), { p, check } = T;
   console.log("g7: deleting, backups, chat");
-  await T.login("faris@x.com", "#entries");
+  await T.login("adam@x.com", "#entries");
   let rows = await T.rows();
   check(rows.length === 2, "two entries in Me", rows);
   // delete (tap a row on touch, or use the buttons)
   // deleting is instant, with Undo in the toast
-  await p.click('#ledger li.tx:has-text("Faris lunch") button[data-del]'); await p.waitForTimeout(500);
+  await p.click('#ledger li.tx:has-text("Adam lunch") button[data-del]'); await p.waitForTimeout(500);
   rows = await T.rows();
   check(rows.length === 1 && !rows.some(r => /lunch/.test(r)), "lunch deleted at once", rows);
   check(await T.visible("#toast .toast-act"), "toast has Undo");
@@ -20,11 +20,11 @@ const fs = require("fs");
   await T.nav("settings/trash"); await p.waitForTimeout(600);
   check(/Nothing deleted/.test(await T.text("#trashList")), "Undo also clears it from Recently deleted", await T.text("#trashList"));
   await T.nav("entries");
-  await p.click('#ledger li.tx:has-text("Faris lunch") button[data-del]'); await p.waitForTimeout(500);
+  await p.click('#ledger li.tx:has-text("Adam lunch") button[data-del]'); await p.waitForTimeout(500);
   rows = await T.rows();
   check(rows.length === 1, "deleted again", rows);
   await T.nav("settings/trash"); await p.waitForTimeout(700);
-  check(/Faris lunch/.test(await T.text("#trashList")), "it's in Recently deleted", await T.text("#trashList"));
+  check(/Adam lunch/.test(await T.text("#trashList")), "it's in Recently deleted", await T.text("#trashList"));
   await p.click("#trashList button[data-untrash]"); await p.waitForTimeout(700);
   check(/Nothing deleted/.test(await T.text("#trashList")), "restored, trash empty", await T.text("#trashList"));
   await T.nav("entries");
@@ -43,7 +43,7 @@ const fs = require("fs");
   await T.nav("entries");
   for (const a of [11, 12, 13]) await T.addEntry("expense", a, 1);
   await p.evaluate(() => localStorage.setItem("pl-lastbackup", String(Date.now() - 20 * 864e5)));
-  await T.login("faris@x.com");
+  await T.login("adam@x.com");
   check(await T.visible("#backupNag") && /20 days/.test(await p.textContent("#backupNag")), "backup reminder after 14 days", await p.textContent("#backupNag"));
   await p.click("#backupNag [data-bk=later]");
   check(!(await T.visible("#backupNag")), "Later hides it");

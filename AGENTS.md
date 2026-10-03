@@ -3,10 +3,10 @@
 Read this file first, then `ARCHITECTURE-ESSENTIALS.md`. `PRD.md` says what the app is for, the product rules, what's next and the release history; `ARCHITECTURE.md` has the detail (modules, data model, server functions, deploy commands, statements, transfers).
 
 ## The project in one breath
-A household money tracker PWA for Faris and his wife Sul (Maldives, MVR). Plain ES modules, no build step, served by GitHub Pages from this repo's root. Firebase (Auth, Firestore with offline cache, Cloud Functions in `asia-south1`, FCM push). Gemini runs through the `gemini` Cloud Function.
+A household money tracker PWA for a couple in the Maldives (MVR). Plain ES modules, no build step, served by GitHub Pages from this repo's root. Firebase (Auth, Firestore with offline cache, Cloud Functions in `asia-south1`, FCM push). Gemini runs through the `gemini` Cloud Function.
 
 ## Rules that are easy to break
-- **The repo is public.** Never commit real bank statements, account numbers, names from statements, keys or tokens. Tests use made-up data only. Never ask for or paste the Gemini key.
+- **The repo is public.** Never commit personal details: real names, bank statements, account numbers (even last 4 digits), names from statements, file paths with names, keys or tokens. Tests use made-up data only. Never ask for or paste the Gemini key.
 - **Every release:** bump `VERSION` in `sw.js` (`pl-vNN`) **and** `?v=NN` on `app.js` and `css/app.css` in `index.html`. Add new JS files to `SHELL` in `sw.js`. Skipping this gives phones a blank page (old and new files mixed).
 - **Run all tests before pushing** (`tests/g1.js` … in order; see Testing). Add a test for anything new.
 - **Dock: always 4 or 6 tabs, never 5.** Rounded, not squircle. The + stays in the middle.
@@ -20,9 +20,9 @@ A household money tracker PWA for Faris and his wife Sul (Maldives, MVR). Plain 
 - Bills/reminders are never auto-added. Loans stay out of "left to spend" unless ticked.
 - Maldivian dates are DD/MM/YYYY.
 
-## How Faris works
+## How the owner works
 - Plain English, short answers, no jargon. He decides product questions; ask when a choice is his.
-- He pushes with GitHub Desktop from `C:\Users\Ahmed Faris\Documents\GitHub\pocket-ledger`. Server parts (`functions/`, `firestore.rules`) need him to run `firebase deploy` in Google Cloud Shell.
+- The owner pushes with GitHub Desktop from the repo folder on their Windows laptop. Server parts (`functions/`, `firestore.rules`) need the owner to run `firebase deploy` in Google Cloud Shell.
 - Show screenshots (phone and laptop) before pushing visible changes.
 - Keep the docs current at the end of each piece of work: a line in `PRD.md` › Release history, and `ARCHITECTURE.md` for anything structural.
 

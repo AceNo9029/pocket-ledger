@@ -5,7 +5,7 @@ A household in the Maldives wants to know, at any moment, **how much is left to 
 
 ## Who it's for
 - Live at https://smilin-assassin.github.io/pocket-ledger/ (installable PWA). Currency MVR; Maldivian dates are DD/MM/YYYY.
-- **Faris** (admin, Samsung S24 Ultra, Windows laptop) and **Sul** (iPhone, installed from Safari). They share some costs, keep some money private, and pass money between each other often (school fees from parents arrive in Sul's account).
+- A couple: the owner (admin; Android phone and a Windows laptop) and their partner (iPhone, installed from Safari). They share some costs, keep some money private, and pass money between each other often.
 - A few invited friends or family later. Invite-only.
 
 ## What good looks like
@@ -23,20 +23,20 @@ A household in the Maldives wants to know, at any moment, **how much is left to 
 - **Look and feel:** themes, light/dark/AMOLED, text size, motion presets, a floating dock with 4 or 6 tabs, vibrations; all in Settings › Appearance.
 - **Alerts:** bills, budgets, loans, money sent to you (FCM push, per-person choices).
 
-## Rules decided with Faris (keep these)
+## Rules decided with the owner (keep these)
 
 - **Privacy:** everyone has a private space ("Me"). Groups (renameable, one person can be in several) hold shared things. Group entries are visible to all members but **only the person who added something can edit/delete it** (enforced by rules via `author`). Only the group owner renames it or opens invitations.
 - Someone can **ask to see** another member's own dashboard; the owner allows/declines; viewers are read-only; it can be revoked in Settings › Privacy.
-- **Invite-only:** new accounts need an invite link (`?invite=CODE`, optional `&join=GROUP`), one use, 7 days, made by an admin in Settings. Existing users from before were let in automatically. Faris is admin. Admin page (side menu on wide screens, Settings › Account on phones) shows people, last active, Gemini use per day/person, daily AI limit, remove/restore access, delete accounts that signed up without an invite. It never shows money.
+- **Invite-only:** new accounts need an invite link (`?invite=CODE`, optional `&join=GROUP`), one use, 7 days, made by an admin in Settings. Existing users from before were let in automatically. The owner is admin. Admin page (side menu on wide screens, Settings › Account on phones) shows people, last active, Gemini use per day/person, daily AI limit, remove/restore access, delete accounts that signed up without an invite. It never shows money.
 - Use "your" on the user's own dashboard; use the person's name only when viewing someone else's.
 - Save type has an "Other" option with a box below for the purpose. Income has "Counts for: this month / next month" (default this month).
 - Repeating items are reminders only (green → amber → red bar as the due day nears), never auto-added.
 - Loans are separate from "left to spend" unless ticked; repayments in increments with a progress bar.
 - Category is a dropdown (not a typed field) to avoid the keyboard autocorrect bar.
-- BML transfer scanning: account last-4 digits decide direction (Faris is "Quraan sir" in other people's contacts; his account ends 5369). Receipts/tax invoices are one expense for the Grand Total; shop bank details on a receipt are not a transfer; notes list every item.
+- BML transfer scanning: account last-4 digits decide direction (people often save the receiver under a nickname, so the account number beats the name). Receipts/tax invoices are one expense for the Grand Total; shop bank details on a receipt are not a transfer; notes list every item.
 - Notifications (FCM) for bills, budgets, loans; chosen per person in Settings.
 - Backups: Recently deleted (30 days); Back up button shares one JSON file (pick Drive on Android, Files on iPhone); reminder after 14 days. Restore replaces only the personal space.
-- Sul is on iPhone: no share-target, no icon shortcuts, push only when installed to home screen (iOS 16.4+).
+- On iPhone: no share-target, no icon shortcuts, push only when installed to home screen (iOS 16.4+).
 - The dock is always 4 or 6 tabs, never 5; rounded, not squircle. All look-and-feel settings live in Settings › Appearance.
 - Deleting is instant with Undo, not "Are you sure?".
 - Never store more than the last 4 digits of an account; those digits only ever match account numbers, never amounts.
@@ -55,6 +55,7 @@ A household in the Maldives wants to know, at any moment, **how much is left to 
 
 ## Release history (newest first)
 
+- October 2026 (pl-v28): personal details removed from the repo (docs, test data, example wording); test data is all made up.
 - October 2026: docs reorganised; HANDOFF.md retired (its content is now in ARCHITECTURE.md, PRD.md and AGENTS.md).
 - October 2026 (pl-v27): tap a category on Home (Where the money went) to see its entries; Entries has a category picker and a total line for whatever is shown (`ui.cat`, `#ledgerTotal`, test g12).
 - October 2026 (pl-v26): MIB CSV statements, cross-checked duplicates, tighter account-number rules for Gemini.

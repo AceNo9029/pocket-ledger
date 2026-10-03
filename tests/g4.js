@@ -7,7 +7,7 @@ const { start, URL0 } = require("./lib");
   await p.goto(URL0 + "?invite=TESTCODE1"); await p.waitForTimeout(500);
   await p.fill("#gEmail", "new@y.com"); await p.fill("#gPass", "secret12"); await p.click("#gCreateBtn"); await p.waitForTimeout(800);
   check((await T.gate()) === "gSetup", "invite accepted, set-up shown", await T.gate());
-  await p.fill("#gMyName", "Faris"); await p.click("#gContinue"); await p.waitForTimeout(1600);
+  await p.fill("#gMyName", "Adam"); await p.click("#gContinue"); await p.waitForTimeout(1600);
   check(await p.isHidden("#spaceBar") && await p.isHidden("#who"), "only one space: no space bar, no person switch");
   check(await T.visible("#dock [data-p=entries]") && !(await T.visible("#adminNav")) && (await p.$$eval("#dock .dk-tab", t => t.length)) === 4, "dock shown with 4 tabs, no admin", await p.$$eval("#dock .dk-tab", t => t.map(x => x.dataset.p)));
 
@@ -79,10 +79,10 @@ const { start, URL0 } = require("./lib");
 
   // settings
   await T.nav("settings"); await p.waitForTimeout(400);
-  await p.fill("#setName1", "Faris A"); await p.fill("#acctList [data-ak=last4]", "5369"); await p.fill("#setOpen1", "2500"); await p.click("#saveSettings"); await p.waitForTimeout(500);
+  await p.fill("#setName1", "Adam A"); await p.fill("#acctList [data-ak=last4]", "4821"); await p.fill("#setOpen1", "2500"); await p.click("#saveSettings"); await p.waitForTimeout(500);
   let d = await T.db();
   const u = d["users/uid_newycom"], st = d["households/" + u.personal].settings;
-  check(st.people[0].name === "Faris A" && st.people[0].acct === "5369" && st.openingBy.uid_newycom === 2500, "details saved (last 4 digits only)", st);
+  check(st.people[0].name === "Adam A" && st.people[0].acct === "4821" && st.openingBy.uid_newycom === 2500, "details saved (last 4 digits only)", st);
   check(/secure server/.test(await p.textContent("#srvState")) && /this device|Blocked/.test(await p.textContent("#ntState")), "Gemini and notification sections", [await p.textContent("#srvState"), await p.textContent("#ntState")]);
   await p.click("#set-look [data-mode=dark]"); await p.waitForTimeout(100);
   check((await p.evaluate(() => document.documentElement.dataset.theme)) === "dark", "dark mode applies");

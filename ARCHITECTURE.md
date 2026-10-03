@@ -36,14 +36,14 @@ Short version: `ARCHITECTURE-ESSENTIALS.md`. What the app is for and the product
 
 ## Navigation, motion and layout
 
-- **Phones (under 900px): a floating dock** (`js/dock.js`). The + sits in the middle; tabs are **always 4 or 6, never 5** (Faris's rule, for symmetry). 4 = three chosen pages + More (default Home, Entries | Bills, More); 6 = every page, no More. 6 is only offered when each tab still gets 46px (about 374px wide or more). Rounded corners only (squircle was tried and dropped).
-- The dock's highlight is a liquid spring: tap, or hold and slide across to scrub. It stays put while scrolling (the tuck-away was removed at Faris's request). Bills count / Settings dot show on the dock, or on More when that page is hidden there. More (`#more`) lists the pages not in the dock, plus Admin for admins.
+- **Phones (under 900px): a floating dock** (`js/dock.js`). The + sits in the middle; tabs are **always 4 or 6, never 5** (owner's rule, for symmetry). 4 = three chosen pages + More (default Home, Entries | Bills, More); 6 = every page, no More. 6 is only offered when each tab still gets 46px (about 374px wide or more). Rounded corners only (squircle was tried and dropped).
+- The dock's highlight is a liquid spring: tap, or hold and slide across to scrub. It stays put while scrolling (the tuck-away was removed at the owner's request). Bills count / Settings dot show on the dock, or on More when that page is hidden there. More (`#more`) lists the pages not in the dock, plus Admin for admins.
 - **The +:** tap = Quick add (`js/quick.js`): number pad, Spent/Income, most-used categories first, Today (tap to change the date), optional note, "More options" opens the full Entries form filled in. Adds as you, with Undo. Hold the + = Scan / Type it / Voice.
 - **Wide screens (900px+):** side menu, with the same liquid highlight moving vertically. No dock.
 - **Deleting** entries, reminders and goals is instant with an **Undo** button in the toast (no "Are you sure?"); Undo also removes the Recently deleted copy, and for goals puts the savings back on the goal. `toast(msg, {action, onAction})` in util.js.
 - **Settings › Appearance holds all look-and-feel** (keep it that way): mode, theme, text size, AMOLED, motion preset (Calm / Lively default / Jelly), dock tabs (4/6 + which pages), little vibrations (default on), measured refresh rate. Motion settings are per device in localStorage `pl-motion`.
 - **Smoothness rules:** animate transform/opacity only; springs run on real elapsed time in small fixed slices (`Spring.run(dt)`), so 60/90/120/144 Hz all look the same and use every frame; CSS transitions use the same spring as a `linear()` easing (`--spring-ease`, `--grow-dur`); scroll listeners are passive; `prefers-reduced-motion` keeps things short. Vibrations only fire after the user has touched the page. **Text size zooms `body` (Small .92 … XL 1.25):** position things with layout values (`offsetLeft/Top/Width`), never `getBoundingClientRect()` alone, or divide screen distances by `zoom()` from dock.js; g10 checks the highlights at every text size. The refresh rate shown is measured during real animations (phones idle at 60 Hz).
-- Header on each page: page title, month switcher (Home, Entries), space chips (Me / groups / dashboards shared with you), and in groups the "You / Sul / All of <group>" switch.
+- Header on each page: page title, month switcher (Home, Entries), space chips (Me / groups / dashboards shared with you), and in groups the "You / <partner> / All of <group>" switch.
 - The chat button floats on every page (above the dock on phones). Scan opens a sheet from Home, Entries, the + (hold), the share sheet or the icon shortcut.
 - Breakpoint 900px: below it the dock and Quick add; above it the side menu.
 
@@ -57,11 +57,11 @@ cd tests && NODE_PATH=$(npm root -g) node g1.js   # then g2 … g12, in order
 
 ## Hosting, services and deploying
 
-- **GitHub Pages** serves the static app. Faris pushes with GitHub Desktop from `C:\Users\Ahmed Faris\Documents\GitHub\pocket-ledger`.
+- **GitHub Pages** serves the static app. The owner pushes with GitHub Desktop from the repo folder on their laptop.
 - **Firebase project `pocket-ledger-3a340`** (Blaze / pay-as-you-go, region `asia-south1`): Email+password Auth, Firestore (persistent offline cache), Cloud Functions, FCM push.
-- **Gemini** runs through the `gemini` Cloud Function with secret `GEMINI_KEY`. This is a FREE-tier key from an AI Studio project without billing (BML cards can't buy prepaid credit). Never ask for or paste the key in chat; Faris sets it in Cloud Shell with `firebase functions:secrets:set GEMINI_KEY`.
+- **Gemini** runs through the `gemini` Cloud Function with secret `GEMINI_KEY`. This is a FREE-tier key from an AI Studio project without billing. Never ask for or paste the key in chat; the owner sets it in Cloud Shell with `firebase functions:secrets:set GEMINI_KEY`.
 - The Firebase web config in `config.js` (apiKey `AIza…LxyV4`) is public by design; not a secret.
-- Deploying server parts is done by Faris in Google Cloud Shell:
+- Deploying server parts is done by the owner in Google Cloud Shell:
   `cd ~/pocket-ledger && git pull && firebase deploy --only functions,firestore:rules`
 - If a newly created callable function says "not authenticated", fix with:
   `gcloud run services add-iam-policy-binding <name-lowercase> --region=asia-south1 --member=allUsers --role=roles/run.invoker --project=pocket-ledger-3a340`
@@ -94,7 +94,7 @@ cd tests && NODE_PATH=$(npm root -g) node g1.js   # then g2 … g12, in order
 
 - Entries page › "Import a bank statement (PDF or CSV)", Settings › Backup, or share a PDF/CSV to the app (Android). Only in your own space (Me).
 - BML CSV exports are read directly in `scan.js` (`bmlRows`), no Gemini. PDFs and other banks' CSVs go to Gemini (`statementPrompt`, PDF sent as `application/pdf`).
-- Every row becomes Spent or Income straight away (no check screen, by Faris's choice). Skipped: rows already in Pocket Ledger (same bank reference, or same type + amount within 2 days, one-to-one) and moves between your own accounts (the name on your bank account, the statement holder's name, or the other side's account ending in one of your last-4 digits).
+- Every row becomes Spent or Income straight away (no check screen, by the owner's choice). Skipped: rows already in Pocket Ledger (same bank reference, or same type + amount within 2 days, one-to-one) and moves between your own accounts (the name on your bank account, the statement holder's name, or the other side's account ending in one of your last-4 digits).
 - Categories: your past choices for that shop first, then one Gemini call for the rest, then simple keyword rules.
 - Imported entries carry `source: "statement"`, `importId`, `importLabel` and the bank `ref`; Undo (in the summary or Settings › Backup) deletes that batch for good.
 - Settings › Your details has a list of bank accounts (bank, nickname, last 4). Stored as `people[0].accounts`; `acct` is kept as the comma list of last-4s for scanning.

@@ -3,7 +3,7 @@ const { start, loadState, URL0 } = require("./lib");
 
 (async () => {
   const st = loadState("2");
-  st["invites/ALIINVITE1"] = { by: "uid_farisxcom", note: "Ali", group: null, created: Date.now(), expires: Date.now() + 1e8, max: 1, used: [] };
+  st["invites/ALIINVITE1"] = { by: "uid_adamxcom", note: "Ali", group: null, created: Date.now(), expires: Date.now() + 1e8, max: 1, used: [] };
   const T = await start({ seed: st, users: { "ali@x.com": "secret12" } }), { p, check } = T;
   console.log("g3: joining a group from a link");
   await p.goto(URL0 + "?join=HH1"); await p.waitForTimeout(800);

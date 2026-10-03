@@ -2,10 +2,10 @@
 const { start, loadState } = require("./lib");
 
 (async () => {
-  const T = await start({ seed: loadState("2"), users: { "faris@x.com": "secret12" } }), { p, check } = T;
+  const T = await start({ seed: loadState("2"), users: { "adam@x.com": "secret12" } }), { p, check } = T;
   console.log("g10: dock, quick add, undo, appearance");
-  const myEntries = async () => { const d = await T.db(), pid = d["users/uid_farisxcom"].personal; return Object.keys(d).filter(k => k.startsWith("households/" + pid + "/entries/")).map(k => d[k]); };
-  await T.login("faris@x.com", "#home");
+  const myEntries = async () => { const d = await T.db(), pid = d["users/uid_adamxcom"].personal; return Object.keys(d).filter(k => k.startsWith("households/" + pid + "/entries/")).map(k => d[k]); };
+  await T.login("adam@x.com", "#home");
   const tabs = () => p.$$eval("#dock .dk-tab", t => t.map(x => x.dataset.p + (x.classList.contains("on") ? "*" : "")));
   check(JSON.stringify(await tabs()) === JSON.stringify(["home*", "entries", "bills", "more"]), "default dock: Home, Entries | Bills, More", await tabs());
   check(!(await T.visible("#nav")), "old tab bar hidden on phones");
@@ -44,7 +44,7 @@ const { start, loadState } = require("./lib");
   check(!(await T.visible("#qaSheet")), "sheet closes after adding");
   let es = await myEntries();
   const added = es.find(e => e.note === "Quick lunch");
-  check(es.length === before + 1 && added && added.amount === 125 && added.type === "expense" && added.category === chip && added.person === "uid_farisxcom", "entry saved", added);
+  check(es.length === before + 1 && added && added.amount === 125 && added.type === "expense" && added.category === chip && added.person === "uid_adamxcom", "entry saved", added);
   check(/Added MVR\s?125\.00/.test(await T.text("#toast")) && await T.visible("#toast .toast-act"), "toast with Undo", await T.text("#toast"));
   await p.click("#toast .toast-act"); await p.waitForTimeout(500);
   check((await myEntries()).length === before, "Undo removes it");
