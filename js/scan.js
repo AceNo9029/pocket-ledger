@@ -1,6 +1,6 @@
 // Scan a receipt, bill or bank screenshot: Gemini reads it, you check, then add.
-import { $, esc, money, num, todayISO, toast, ISO } from "./util.js";
-import { state, ui, meId, people, pname, visibleGoals, catOptions, guessCategory, EXP_CATS, INC_CATS, TYPE_LABEL, changed, db } from "./store.js";
+import { $, esc, money, num, r2, sum, todayISO, toast, ISO, fmtDate, monthName, daysBetween } from "./util.js";
+import { state, ui, meId, isGroup, people, pname, visibleGoals, catOptions, guessCategory, EXP_CATS, INC_CATS, TYPE_LABEL, changed, db } from "./store.js";
 import { budgetCheck } from "./actions.js";
 import { aiReady, geminiJson } from "./gemini.js";
 import { go } from "./shell.js";
@@ -165,9 +165,7 @@ function applyAnswer(it, field, value) {
 export function initScan() {
   $("scanFile").addEventListener("change", ev => {
     const files = Array.from(ev.target.files || []); ev.target.value = "";
-    if (!files.length) return;
-    if (files.length > 4) toast("Reading the first 4 images");
-    startScan(files.slice(0, 4));
+    handleFiles(files);
   });
   document.addEventListener("click", ev => { if (ev.target.closest("[data-scan]")) openScanPicker(); });
   $("scanMore").addEventListener("click", openScanPicker);
@@ -208,4 +206,252 @@ export function initScan() {
     closeScan();
     if (m !== ui.month) { ui.month = m; changed(); }
   });
+}
+
+// ======================================================================
+// Bank statements (PDF or CSV). Every transaction is added straight away
+// as Spent or Income. Rows already in Pocket Ledger and moves between
+// your own accounts are skipped. One tap undoes the whole import.
+// ======================================================================
+export const isStatementFile = f => /pdf|csv|comma-separated/i.test(f.type || "") || /\.(pdf|csv)$/i.test(f.name || "");
+export function handleFiles(files) {
+  files = Array.from(files || []);
+  const st = files.find(isStatementFile);
+  if (st) return importStatement(st);
+  if (files.length > 4) toast("Reading the first 4 images");
+  if (files.length) startScan(files.slice(0, 4));
+}
+function statementBlocked() {
+  if (state.readOnly) return "You can't add entries here.";
+  if (isGroup()) return "Statements go into your own space. Switch to Me first, then import.";
+  return "";
+}
+export function openStatementPicker() {
+  const why = statementBlocked(); if (why) return toast(why);
+  $("stmtFile").click();
+}
+
+// ---------- reading the file ----------
+function csvRows(text) {
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { row.push(f); f = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(f); if (row.some(v => v.trim())) rows.push(row); row = []; f = ""; }
+    else f += c;
+  }
+  if (f || row.length) { row.push(f); if (row.some(v => v.trim())) rows.push(row); }
+  return rows.map(r => r.map(v => v.trim().replace(/^="(.*)"$/, "$1").trim()));
+}
+const dmy = v => { const m = String(v || "").match(/^(\d{2})-(\d{2})-(\d{4})/); return m ? m[3] + "-" + m[2] + "-" + m[1] : ""; };
+const money2 = v => num(String(v || "").replace(/,/g, ""));
+// Bank of Maldives CSV export: read exactly, no Gemini needed
+function bmlRows(rows) {
+  const out = [];
+  for (const r of rows) {
+    if (r.length < 11 || !/^\d{4}\/\d{2}\/\d{2}$/.test(r[0])) continue;
+    const debit = money2(r[8]), credit = money2(r[9]);
+    if (!(debit > 0) && !(credit > 0)) continue;
+    const favara = /favara|ips/i.test(r[2]);
+    out.push({ date: dmy(r[5]) || dmy(r[7]) || r[0].replace(/\//g, "-"), dir: debit > 0 ? "out" : "in", amount: debit > 0 ? debit : credit,
+      name: favara ? r[5] : r[6], ref: r[3], kind: /purchase|pos/i.test(r[2]) ? "purchase" : /transfer|favara|ips/i.test(r[2]) ? "transfer" : "other",
+      label: r[2], acct: (r.join(" ").match(/\b\d{8,}\b/g) || []).join(" ") });
+  }
+  return out;
+}
+function statementPrompt(kind) {
+  return [
+    "You are reading a bank statement (" + kind + ") from the Maldives for a personal money tracker. List EVERY transaction. Reply with JSON only.",
+    "",
+    "Reply with exactly: {\"bank\": \"BML\" | \"MIB\" | \"other bank name\", \"holder\": \"account holder name or null\", \"account_last4\": \"last 4 digits of this statement's account or null\", \"rows\": [[date, direction, amount, other_party, reference, kind, other_account]]}",
+    "- date: the transaction date as YYYY-MM-DD. If the details contain a date written DD-MM-YYYY (day first), use that; otherwise the posting date. 03-09-2026 is 3 September 2026.",
+    "- direction: \"out\" for a debit (money leaving the account), \"in\" for a credit.",
+    "- amount: positive number, no commas.",
+    "- other_party: the shop or person on the other side, as written (for card purchases the merchant name; for transfers the person or company; for Favara/IPS the name shown).",
+    "- reference: the transaction reference like BLAZ123..., RB24..., or the MADVIPS/MALBIPS code, or \"\".",
+    "- kind: \"purchase\" (card), \"transfer\", \"fee\" (bank charges) or \"other\".",
+    "- other_account: the other side's account number if one is printed, else \"\".",
+    "Skip only opening/closing balance lines, page headers and totals. Keep the statement's order. Don't invent or merge rows."
+  ].join("\n");
+}
+async function aiRows(file) {
+  if (!aiReady()) throw { code: "no_key" };
+  if (/pdf/i.test(file.type || "") || /\.pdf$/i.test(file.name || "")) {
+    const res = await geminiJson(statementPrompt("PDF"), [file]);
+    return { rows: normAi(res.rows), bank: res.bank, holder: res.holder, last4: res.account_last4 };
+  }
+  // another bank's CSV: send the text in pieces
+  const lines = (await file.text()).split(/\r?\n/).filter(l => l.trim());
+  const head = lines.slice(0, 3).join("\n"), out = { rows: [] };
+  for (let i = 0; i < lines.length; i += 120) {
+    const part = i ? head + "\n" + lines.slice(i, i + 120).join("\n") : lines.slice(0, 120).join("\n");
+    const res = await geminiJson(statementPrompt("CSV text below" + (i ? ", continued: the first lines repeat the header, don't list those twice" : "")) + "\n\n" + part, []);
+    out.rows = out.rows.concat(normAi(res.rows)); out.bank = out.bank || res.bank; out.holder = out.holder || res.holder; out.last4 = out.last4 || res.account_last4;
+  }
+  return out;
+}
+const normAi = rows => (Array.isArray(rows) ? rows : []).map(r => Array.isArray(r) ? { date: String(r[0] || ""), dir: r[1] === "in" ? "in" : "out", amount: money2(r[2]), name: String(r[3] || ""), ref: String(r[4] || ""), kind: String(r[5] || "other"), acct: String(r[6] || "") } : null)
+  .filter(r => r && ISO.test(r.date) && r.amount > 0);
+
+// ---------- deciding what to add ----------
+const toks = s => String(s || "").toUpperCase().replace(/[^A-Z ]/g, " ").split(/\s+/).filter(Boolean);
+const skel = t => t.replace(/[AEIOU]/g, "");
+const tokMatch = (t, u) => t === u || (u.length === 1 && t[0] === u) || (t.length >= 3 && u.length >= 3 && (t.startsWith(u) || u.startsWith(t))) || (t.length >= 4 && u.length >= 3 && skel(t).length >= 2 && skel(t) === skel(u));
+export function nameMatches(own, other) {
+  const a = toks(own), b = toks(other);
+  return a.length >= 2 && a.every(t => b.some(u => tokMatch(t, u)));
+}
+function ownInfo(extra) {
+  const me = myDetails(), names = [], last4 = new Set();
+  String(me.bank || "").split(",").map(x => x.trim()).filter(Boolean).forEach(n => names.push(n));
+  if (toks(me.name).length >= 2) names.push(me.name);
+  if (extra && extra.holder) names.push(extra.holder);
+  String(me.acct || "").split(/[,\s]+/).forEach(d => { if (/^\d{4}$/.test(d)) last4.add(d); });
+  (me.accounts || []).forEach(a => { if (/^\d{4}$/.test(a.last4 || "")) last4.add(a.last4); });
+  if (extra && /^\d{4}$/.test(String(extra.last4 || ""))) last4.add(String(extra.last4));
+  return { names, last4 };
+}
+function myDetails() { return state.my || people().find(p => p.id === meId()) || {}; }
+const titleCase = s => String(s || "").toLowerCase().replace(/(^|[\s\-\/&(])([a-z])/g, (m, a, c) => a + c.toUpperCase()).replace(/\b(Pvt|Ltd|Llc|Mv|Mib|Bml|Atm|Ips)\b/g, w => w.toUpperCase()).trim();
+const FALLBACK = [[/stop 2 shop|mart|super ?market|grocer|fish|fruit/i, "Food & groceries"], [/food|cafe|café|bistro|restaurant|bakery|pizza|burger|kitchen/i, "Eating out"],
+  [/mwsc|stelco|fenaka|water|electric|council/i, "Rent & bills"], [/ooredoo|dhiraagu|internet|fahipay/i, "Phone & internet"], [/pharmacy|chemist|hospital|clinic|medical/i, "Health"],
+  [/netflix|spotify|google|microsoft|apple|steam|playstation|clash/i, "Entertainment"], [/fuel|petrol|taxi|ferry|transport/i, "Transport"]];
+async function categorize(rows) {
+  const want = {};
+  rows.forEach(r => {
+    const type = r.dir === "out" ? "expense" : "income";
+    r.category = guessCategory(r.note, type);
+    if (!r.category) (want[type] = want[type] || new Set()).add(r.name);
+  });
+  let ai = {};
+  if (aiReady() && (want.expense || want.income)) {
+    try {
+      ai = await geminiJson([
+        "These names come from a Maldivian bank statement. Pick the best category for each, for a personal money tracker. Reply with JSON only: {\"expense\": {\"NAME\": \"Category\"}, \"income\": {\"NAME\": \"Category\"}}.",
+        "Expense categories: " + EXP_CATS.filter(c => !/loan/i.test(c)).join(", ") + ".",
+        "Income categories: " + INC_CATS.filter(c => !/loan/i.test(c)).join(", ") + ".",
+        "Shops and companies: by what they sell (supermarkets and grocery shops -> Food & groceries; cafes and restaurants -> Eating out; utilities, water, electricity, council fees -> Rent & bills; phone, internet, top-ups, bill-payment apps -> Phone & internet; streaming, games, apps, software subscriptions -> Entertainment).",
+        "Money sent to a private person -> Other. Money received from a private person -> Side income. Use exactly the category names above.",
+        "Money out to: " + JSON.stringify([...(want.expense || [])]),
+        "Money in from: " + JSON.stringify([...(want.income || [])])
+      ].join("\n"), []);
+    } catch (e) { ai = {}; }
+  }
+  rows.forEach(r => {
+    if (r.category) return;
+    const type = r.dir === "out" ? "expense" : "income", pick = ((ai && ai[type]) || {})[r.name];
+    const ok = (type === "expense" ? EXP_CATS : INC_CATS).includes(pick);
+    r.category = ok ? pick : type === "income" ? "Side income" : ((FALLBACK.find(([re]) => re.test(r.name)) || [])[1] || "Other");
+  });
+}
+
+let lastImport = null;
+async function importStatement(file) {
+  const why = statementBlocked(); if (why) return toast(why);
+  if (scanAbort) scanAbort.abort();
+  items = []; open();
+  $("scanTitle").textContent = "Reading your statement…";
+  $("scanList").innerHTML = ""; $("scanFoot").hidden = true; $("scanErr").hidden = true;
+  status("Going through every transaction. A long statement takes up to a minute.", true);
+  try {
+    if (!navigator.onLine) throw { code: "offline" };
+    let rows = [], extra = {};
+    if (!/pdf/i.test(file.type || "") && !/\.pdf$/i.test(file.name || "")) rows = bmlRows(csvRows(await file.text()));
+    if (rows.length) extra.bank = "BML";
+    else { const r = await aiRows(file); rows = r.rows; extra = r; }
+    if (!rows.length) throw { code: "empty" };
+    const own = ownInfo(extra);
+    if (!own.names.length && !own.last4.size && !importAnyway) return askForDetails(file);
+    const isOwn = r => (r.acct && String(r.acct).split(/\s+/).some(d => d.length >= 8 && own.last4.has(d.slice(-4)))) || own.names.some(n => nameMatches(n, r.name));
+    const used = new Set(), mine = state.entries.filter(e => e.person === meId() || !e.person);
+    const dupOfRow = r => {
+      const type = r.dir === "out" ? "expense" : "income";
+      if (r.ref) { const e = mine.find(x => x.ref && x.ref === r.ref); if (e) return e; }
+      const e = mine.find(x => !used.has(x.id) && (x.type === type || (x.loanId && x.type === type)) && Math.abs(+x.amount - r.amount) < 0.005 && x.date && Math.abs(daysBetween(x.date, r.date)) <= 2);
+      if (e) used.add(e.id);
+      return e;
+    };
+    const res = { add: [], dup: [], own: [] };
+    rows.forEach(r => {
+      if (isOwn(r)) return res.own.push(r);
+      if (dupOfRow(r)) return res.dup.push(r);
+      const nm = titleCase(r.name) || titleCase(r.label) || "Bank";
+      r.note = (r.kind === "purchase" ? nm : r.dir === "out" ? (r.kind === "fee" ? nm : "Transfer to " + nm) : "From " + nm).slice(0, 160);
+      res.add.push(r);
+    });
+    status("Sorting " + res.add.length + " transactions into categories…", true);
+    await categorize(res.add);
+    const months = [...new Set(rows.map(r => r.date.slice(0, 7)))].sort();
+    const importId = "imp" + Date.now().toString(36);
+    const cnt = {}; rows.forEach(r => { const k = r.date.slice(0, 7); cnt[k] = (cnt[k] || 0) + 1; });
+    const main = months.filter(k => cnt[k] >= Math.max(3, rows.length * 0.15));
+    const label = (extra.bank || "Bank") + " statement · " + (main.length ? main : months).map(k => monthName(k, true)).join(", ");
+    const entries = res.add.map((r, i) => Object.assign({ type: r.dir === "out" ? "expense" : "income", amount: r2(r.amount), date: r.date, category: r.category, note: r.note,
+      person: meId(), created: Date.now() + i, source: "statement", importId, importLabel: label }, r.ref ? { ref: r.ref.slice(0, 40) } : {}));
+    status("Adding " + entries.length + " entries…", true);
+    const ids = entries.length ? await db.addMany(entries) : [];
+    lastImport = { ids, importId, label, months, res };
+    renderImport();
+  } catch (e) {
+    importAnyway = false;
+    if (e && !e.code && e.message) e = { code: "http", message: e.message };
+    const code = e && e.code;
+    $("scanTitle").textContent = "Couldn't import that";
+    const msg = {
+      no_key: "Reading this statement needs Gemini. Set it up in Settings › Gemini, or use your bank's CSV export.",
+      offline: "Importing a statement needs an internet connection.",
+      empty: "I couldn't find any transactions in that file. Check it's a statement from your bank's app or website.",
+      too_big: "That file is too big. Download a shorter period (one month) and try again.",
+      rate_limited: "Gemini's limit was reached for now. Try again in a minute, or use the CSV export."
+    }[code] || "Importing didn't work this time. Try again.";
+    status(esc(msg) + (e && e.message && code === "http" ? '<br><small class="muted">Details: ' + esc(String(e.message).slice(0, 200)) + "</small>" : ""), false);
+    $("scanFoot").hidden = false; $("scanAdd").hidden = true;
+  }
+}
+let importAnyway = false, pendingFile = null;
+function askForDetails(file) {
+  pendingFile = file;
+  $("scanTitle").textContent = "One thing first";
+  status("To skip moves between your own accounts, I need the name on your bank account or your account numbers (last 4 digits). Add them in Settings › Your details, then import again.", false);
+  $("scanList").innerHTML = `<div class="row-btns"><button class="primary" type="button" data-imp="details">Open Settings</button><button class="ghost" type="button" data-imp="anyway">Import anyway</button></div>`;
+}
+function renderImport() {
+  const L = lastImport, r = L.res, sumOf = (a, d) => r2(sum(a.filter(x => x.dir === d), x => x.amount));
+  const outN = r.add.filter(x => x.dir === "out").length, inN = r.add.length - outN;
+  $("scanTitle").textContent = r.add.length ? "Statement imported" : "Nothing new to add";
+  status(esc(L.label), false);
+  const list = (a, title) => a.length ? `<details class="box imp-list"><summary>${esc(title)}</summary><ul>${a.map(x => `<li><span>${esc(fmtDate(x.date))} · ${esc(titleCase(x.name) || x.label || "")}</span><b class="num">${x.dir === "out" ? "−" : "+"}${esc(money(x.amount))}</b></li>`).join("")}</ul></details>` : "";
+  const byCat = {}; r.add.filter(x => x.dir === "out").forEach(x => { byCat[x.category] = (byCat[x.category] || 0) + x.amount; });
+  $("scanList").innerHTML = `<div class="imp">
+    <div class="imp-stats"><div><span class="label">Spent</span><b class="num">${esc(money(sumOf(r.add, "out")))}</b><small>${outN} entr${outN === 1 ? "y" : "ies"} added</small></div>
+      <div><span class="label">Income</span><b class="num">${esc(money(sumOf(r.add, "in")))}</b><small>${inN} entr${inN === 1 ? "y" : "ies"} added</small></div></div>
+    ${Object.keys(byCat).length ? `<p class="hint">${Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([c, v]) => esc(c) + " " + esc(money(v, { whole: true }))).join(" · ")}</p>` : ""}
+    <p class="hint">Skipped ${r.dup.length} already in Pocket Ledger and ${r.own.length} between your own accounts.</p>
+    ${list(r.add, "Added (" + r.add.length + ")")}${list(r.dup, "Already in Pocket Ledger (" + r.dup.length + ")")}${list(r.own, "Between your own accounts (" + r.own.length + ")")}
+    <div class="row-btns">${r.add.length ? `<button class="primary" type="button" data-imp="see">See entries</button><button class="ghost" type="button" data-imp="undo">Undo this import</button>` : `<button class="primary" type="button" data-imp="close">Close</button>`}</div>
+  </div>`;
+  $("scanFoot").hidden = true;
+}
+export async function undoImport(importId, ids) {
+  ids = ids && ids.length ? ids : state.entries.filter(e => e.importId === importId).map(e => e.id);
+  try { await db.removeMany(ids); toast("Import undone: " + ids.length + " entries removed"); return true; }
+  catch { toast("Couldn't undo. Check your connection and try again."); return false; }
+}
+async function onImportClick(b) {
+  const what = b.dataset.imp;
+  if (what === "see") { const k = lastImport.months[lastImport.months.length - 1]; closeScan(); ui.month = k; go("entries"); changed(); }
+  else if (what === "close") closeScan();
+  else if (what === "undo") {
+    if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Tap again to remove " + lastImport.ids.length + " entries"; return; }
+    b.disabled = true;
+    if (await undoImport(lastImport.importId, lastImport.ids)) closeScan(); else b.disabled = false;
+  } else if (what === "details") { closeScan(); go("settings", "you"); }
+  else if (what === "anyway") { importAnyway = true; const f = pendingFile; pendingFile = null; await importStatement(f); importAnyway = false; }
+}
+export function initStatements() {
+  $("stmtFile").addEventListener("change", ev => { const f = (ev.target.files || [])[0]; ev.target.value = ""; if (f) importStatement(f); });
+  document.addEventListener("click", ev => { if (ev.target.closest("[data-statement]")) openStatementPicker(); });
+  $("scanList").addEventListener("click", ev => { const b = ev.target.closest("button[data-imp]"); if (b) { ev.stopPropagation(); onImportClick(b); } }, true);
 }

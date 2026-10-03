@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="css/app.css?v=21">
+<link rel="stylesheet" href="css/app.css?v=22">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -162,6 +162,7 @@
 
         <section class="panel" id="formPanel">
           <button class="scanbig" type="button" data-scan="1"><svg class="ico"><use href="#i-cam"/></svg><span><b>Scan a receipt or screenshot</b><small>Take a photo or pick one. I'll fill in the details and ask if anything's unclear.</small></span></button>
+          <button class="linkish stmt-link" type="button" data-statement="1">Import a bank statement (PDF or CSV)</button>
           <div class="panel-head"><h2 id="formTitle">Add an entry</h2><button class="icon-btn" type="button" id="cancelEdit" hidden>Cancel edit</button></div>
           <div class="seg" role="group" aria-label="Entry type">
             <button type="button" data-t="expense" aria-pressed="true">Spent</button>
@@ -290,7 +291,6 @@
           <div class="field"><label for="setName1">Your name</label><input id="setName1" maxlength="20"></div>
           <div class="field" id="setOpenF"><label for="setOpen1">Savings you already had</label><input id="setOpen1" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
           <div class="field"><label for="setBank1">Name on your bank account</label><input id="setBank1" maxlength="80" spellcheck="false" placeholder="As shown on transfers"></div>
-          <div class="field"><label for="setAcct1">Your account numbers (last 4 digits)</label><input id="setAcct1" maxlength="40" inputmode="numeric" spellcheck="false" placeholder="e.g. 5369"></div>
           <div class="field"><label for="setCurrency" id="setCurrencyL">Currency</label>
             <select id="setCurrency">
               <option value="MVR">MVR – Maldivian rufiyaa</option><option value="USD">USD – US dollar</option>
@@ -299,8 +299,12 @@
               <option value="EUR">EUR – Euro</option><option value="GBP">GBP – British pound</option>
             </select></div>
         </div>
+        <div class="field"><span class="flabel">Your bank accounts</span>
+          <div id="acctList" class="acct-list"></div>
+          <div><button class="ghost" type="button" id="acctAdd">Add an account</button></div>
+        </div>
         <div class="pcolors" id="pcol1"></div>
-        <p class="hint">The bank name and last 4 digits help scanning tell whether a transfer went out or came in. People who pay you often save you under a nickname, so the account digits are the most reliable. Separate several with commas.</p>
+        <p class="hint">The name on your account and the last 4 digits of each account help scanning tell whether a transfer went out or came in, and let statement imports skip moves between your own accounts. Only the last 4 digits are kept, in your own private space.</p>
         <p class="hint" id="setOpenHint">"Savings you already had" is your starting balance before you began logging here. It counts toward total savings but not toward any goal.</p>
         <div><button class="primary" type="button" id="saveSettings">Save</button></div>
       </section>
@@ -392,6 +396,10 @@
           <button class="ghost" type="button" id="exportBtn2">Export entries (CSV)</button>
         </div>
         <p class="hint" id="backupLast"></p>
+        <h3 class="sub-h">Bank statements</h3>
+        <p class="hint">Import a whole month from your bank (PDF or CSV). Everything is added as Spent or Income; things already here and moves between your own accounts are skipped.</p>
+        <div class="row-btns"><button class="ghost" type="button" data-statement="1">Import a bank statement</button></div>
+        <div id="importList" class="grp-list"></div>
         <div class="banner" id="restoreBanner" hidden><span id="restoreMsg"></span><span class="row-btns"><button type="button" id="restoreYes">Replace my data</button><button type="button" id="restoreNo">Cancel</button></span></div>
         <input type="file" id="restoreFile" accept=".json,application/json" hidden>
       </section>
@@ -430,6 +438,7 @@
   </section>
 </div>
 <input type="file" id="scanFile" accept="image/*" multiple hidden>
+<input type="file" id="stmtFile" accept=".pdf,.csv,application/pdf,text/csv,text/comma-separated-values" hidden>
 
 <div class="toast" id="toast" role="status" hidden></div>
 
@@ -506,6 +515,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="app.js?v=21"></script>
+<script type="module" src="app.js?v=22"></script>
 </body>
 </html>

@@ -75,7 +75,7 @@ const { start, URL0 } = require("./lib");
 
   // settings
   await T.nav("settings"); await p.waitForTimeout(400);
-  await p.fill("#setName1", "Faris A"); await p.fill("#setAcct1", "12345369"); await p.fill("#setOpen1", "2500"); await p.click("#saveSettings"); await p.waitForTimeout(500);
+  await p.fill("#setName1", "Faris A"); await p.fill("#acctList [data-ak=last4]", "5369"); await p.fill("#setOpen1", "2500"); await p.click("#saveSettings"); await p.waitForTimeout(500);
   let d = await T.db();
   const u = d["users/uid_newycom"], st = d["households/" + u.personal].settings;
   check(st.people[0].name === "Faris A" && st.people[0].acct === "5369" && st.openingBy.uid_newycom === 2500, "details saved (last 4 digits only)", st);

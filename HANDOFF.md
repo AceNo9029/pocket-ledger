@@ -19,7 +19,7 @@ Read this first in a new conversation. It explains what the app is, how it's bui
   `cd ~/pocket-ledger && git pull && firebase deploy --only functions,firestore:rules`
 - If a newly created callable function says "not authenticated", fix with:
   `gcloud run services add-iam-policy-binding <name-lowercase> --region=asia-south1 --member=allUsers --role=roles/run.invoker --project=pocket-ledger-3a340`
-- Suggested (may or may not have been run): daily Firestore backups
+- Daily Firestore backups are scheduled (7 days kept; checked 3 Oct 2026). The command, for reference:
   `gcloud firestore backups schedules create --database='(default)' --recurrence=daily --retention=7d --project=pocket-ledger-3a340`
 
 ## Files (what's deployed)
@@ -39,7 +39,7 @@ No build step: GitHub Pages serves these files as they are. Plain ES modules, on
 | `js/pages/*.js` | One file per page: `home`, `entries` (form + list, CSV), `loans`, `bills`, `goals`, `settings` (you, appearance, groups, privacy, invites, recently deleted), `admin`. |
 | `js/gemini.js`, `js/scan.js`, `js/chat.js` | Gemini calls (server function or key), receipt/screenshot scanning sheet, chat with voice + one-tap confirm. |
 | `js/lock.js`, `js/notify.js`, `js/backup.js`, `js/util.js` | App lock, push notifications + callable helper, backup/restore/reminder, small helpers. |
-| `sw.js` | Service worker: network-first cache, share-target, push. **Bump `VERSION` (`pl-vNN`) on every release** and add any new file to `SHELL`. Latest: `pl-v21`. `index.html` loads `app.js?v=NN` and `css/app.css?v=NN`: bump those numbers too, so phones never mix a new page with old cached files (that caused a blank page after the first overhaul release). |
+| `sw.js` | Service worker: network-first cache, share-target, push. **Bump `VERSION` (`pl-vNN`) on every release** and add any new file to `SHELL`. Latest: `pl-v22`. `index.html` loads `app.js?v=NN` and `css/app.css?v=NN`: bump those numbers too, so phones never mix a new page with old cached files (that caused a blank page after the first overhaul release). |
 | `manifest.webmanifest`, `icons/` | PWA manifest (share_target, shortcuts) and icons. |
 | `firestore.rules` | Security rules (see below). |
 | `functions/` | Cloud Functions: `index.js`, `alerts.js`, `package.json` (Node 22, firebase-admin 13, firebase-functions 6). |
@@ -102,6 +102,16 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
 ## History
 
 - October 2026: front-end overhaul. Same Firestore data, rules and functions; the single generated page became separate modules and pages with a side menu / tab bar. Behaviour changes worth knowing: in your own space and in groups you always add things as yourself (as before), the Gemini key/model now has its own Save button, and the old "top buttons show icons/words" setting went away with the top toolbar.
+
+## Bank statements (added Oct 2026)
+
+- Entries page › "Import a bank statement (PDF or CSV)", Settings › Backup, or share a PDF/CSV to the app (Android). Only in your own space (Me).
+- BML CSV exports are read directly in `scan.js` (`bmlRows`), no Gemini. PDFs and other banks' CSVs go to Gemini (`statementPrompt`, PDF sent as `application/pdf`).
+- Every row becomes Spent or Income straight away (no check screen, by Faris's choice). Skipped: rows already in Pocket Ledger (same bank reference, or same type + amount within 2 days, one-to-one) and moves between your own accounts (the name on your bank account, the statement holder's name, or the other side's account ending in one of your last-4 digits).
+- Categories: your past choices for that shop first, then one Gemini call for the rest, then simple keyword rules.
+- Imported entries carry `source: "statement"`, `importId`, `importLabel` and the bank `ref`; Undo (in the summary or Settings › Backup) deletes that batch for good.
+- Settings › Your details has a list of bank accounts (bank, nickname, last 4). Stored as `people[0].accounts`; `acct` is kept as the comma list of last-4s for scanning.
+- Tested by `tests/g8.js` with made-up data. Never commit a real statement: the repo is public.
 
 ## Ideas not done yet
 

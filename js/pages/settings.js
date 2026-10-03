@@ -20,12 +20,31 @@ function fillMyDetails() {
   const me = meId(), p = myDetails(), ob = state.settings.openingBy || {};
   $("setName1").value = (isGroup() ? (state.household.names || {})[me] : p.name) || p.name || "";
   $("setOpen1").value = isGroup() ? "" : (ob[me] || "");
-  $("setBank1").value = p.bank || ""; $("setAcct1").value = p.acct || "";
+  $("setBank1").value = p.bank || "";
+  acctRows = (p.accounts && p.accounts.length ? p.accounts : String(p.acct || "").split(/[,\s]+/).filter(d => /^\d{4}$/.test(d)).map(d => ({ bank: "", name: "", last4: d })))
+    .map(a => Object.assign({ bank: "", name: "", last4: "" }, a));
+  if (!acctRows.length) acctRows = [{ bank: "", name: "", last4: "" }];
+  renderAccts();
   $("setCurrency").value = state.settings.currency || "MVR";
   $("setCurrency").disabled = isGroup() && !isOwner();
   $("setCurrencyL").textContent = isGroup() ? "Currency for " + (state.household.name || "this group") : "Currency";
   $("setOpenF").hidden = isGroup(); $("setOpenHint").hidden = isGroup();
   pickedColor = null; renderColors();
+}
+// your bank accounts: bank, a nickname and the last 4 digits (nothing more is kept)
+let acctRows = [];
+function renderAccts() {
+  $("acctList").innerHTML = acctRows.map((a, i) => `<div class="acct-row" data-ai="${i}">
+    <select data-ak="bank" aria-label="Bank">${[["", "Bank"], ["BML", "BML"], ["MIB", "MIB"], ["Other", "Other"]].map(([v, l]) => `<option value="${v}"${a.bank === v ? " selected" : ""}>${l}</option>`).join("")}</select>
+    <input data-ak="name" maxlength="30" placeholder="Nickname, e.g. Savings" value="${esc(a.name)}" aria-label="Nickname">
+    <input data-ak="last4" maxlength="4" inputmode="numeric" placeholder="Last 4" value="${esc(a.last4)}" aria-label="Last 4 digits" class="num">
+    <button class="icon-btn" type="button" data-acctdel="${i}" aria-label="Remove this account">✕</button></div>`).join("");
+}
+function readAccts() {
+  document.querySelectorAll("#acctList .acct-row").forEach(row => {
+    const a = acctRows[+row.dataset.ai]; if (!a) return;
+    row.querySelectorAll("[data-ak]").forEach(el => { a[el.dataset.ak] = el.value; });
+  });
 }
 function renderColors() {
   const me = meId(), cur = pickedColor || pcolor(me);
@@ -35,7 +54,9 @@ async function saveMyDetails() {
   const me = meId(), name = $("setName1").value.trim() || "Me", o1 = num($("setOpen1").value || "0");
   if (!(o1 >= 0)) return toast("Starting savings can't be negative.");
   const color = pickedColor || pcolor(me);
-  const mine = { id: me, name, bank: $("setBank1").value.trim(), acct: last4($("setAcct1").value), color };
+  readAccts();
+  const accounts = acctRows.map(a => ({ bank: a.bank, name: a.name.trim().slice(0, 30), last4: last4(a.last4) })).filter(a => a.last4);
+  const mine = { id: me, name, bank: $("setBank1").value.trim(), acct: [...new Set(accounts.map(a => a.last4))].join(", "), accounts, color };
   const cur = $("setCurrency").value, jobs = [], pid = ctx.profile.personal;
   if (pid && (!isGroup() || state.my)) {
     const up = { "settings.people": [mine] };
@@ -197,6 +218,8 @@ async function onClick(ev) {
   const b = ev.target.closest("button"); if (!b) return;
   const d = b.dataset;
   if (d.c && b.closest("#pcol1")) { pickedColor = d.c; renderColors(); return; }
+  if (b.id === "acctAdd") { readAccts(); acctRows.push({ bank: "", name: "", last4: "" }); renderAccts(); const ins = $("acctList").querySelectorAll("[data-ak=name]"); if (ins.length) ins[ins.length - 1].focus(); return; }
+  if (d.acctdel !== undefined) { readAccts(); acctRows.splice(+d.acctdel, 1); if (!acctRows.length) acctRows.push({ bank: "", name: "", last4: "" }); renderAccts(); return; }
   try {
     if (b.id === "saveSettings") return saveMyDetails();
     if (d.mode) { lsSet("pl-mode", d.mode === "auto" ? "" : d.mode); window.plApplyTheme(); syncAppearance(); }

@@ -36,13 +36,23 @@ async function shrinkImage(file) {
   if (bmp.close) bmp.close();
   return c.toDataURL("image/jpeg", 0.8).split(",")[1];
 }
+async function fileB64(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let bin = ""; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
 export async function geminiText(prompt, files, opts) {
   opts = opts || {};
   const signal = opts.signal, key = geminiKey(), server = serverAI();
   if (!key && !server) throw { code: "no_key" };
   if (!navigator.onLine) throw { code: "offline" };
   const parts = [{ text: prompt }];
-  for (const f of files || []) parts.push({ inline_data: { mime_type: "image/jpeg", data: await shrinkImage(f) } });
+  for (const f of files || []) {
+    if (/pdf/i.test(f.type || "") || /\.pdf$/i.test(f.name || "")) {
+      if ((f.size || 0) > 8e6) throw { code: "too_big", message: Math.round(f.size / 1e6) + " MB" };
+      parts.push({ inline_data: { mime_type: "application/pdf", data: await fileB64(f) } });
+    } else parts.push({ inline_data: { mime_type: "image/jpeg", data: await shrinkImage(f) } });
+  }
   if (opts.audio) parts.push({ inline_data: { mime_type: "audio/wav", data: opts.audio } });
   if (signal && signal.aborted) throw { code: "cancelled" };
   const gen = { temperature: opts.temperature ?? 0.1 };

@@ -23,7 +23,7 @@ const users = { "faris@x.com": "secret12", "sul@x.com": "secret12", "ali@x.com":
   await T.nav("settings"); await p.waitForTimeout(600);
   const groups = await T.text("#grpList");
   check(/Household/.test(groups) && /Leave group/.test(groups) && !/Rename/.test(groups), "Sul sees the group, can leave, can't rename", groups);
-  check((await p.inputValue("#setName1")) === "Sul" && (await p.inputValue("#setAcct1")) === "1111", "Sul's own name and account digits", [await p.inputValue("#setName1"), await p.inputValue("#setAcct1")]);
+  check((await p.inputValue("#setName1")) === "Sul" && (await p.inputValue("#acctList [data-ak=last4]")) === "1111", "Sul's own name and account digits", [await p.inputValue("#setName1"), await p.inputValue("#acctList [data-ak=last4]")]);
   check(!(await T.visible("#invSec")), "Sul (not admin) doesn't see invites");
   check(/Ask to see/.test(await T.text("#privList")), "Sul can ask to see Faris's dashboard", await T.text("#privList"));
   await p.click("#privList button[data-ask]"); await p.waitForTimeout(500);

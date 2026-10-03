@@ -9,7 +9,7 @@ import { page as bills } from "./pages/bills.js";
 import { page as goals } from "./pages/goals.js";
 import { page as settings, checkRequests } from "./pages/settings.js";
 import { page as admin } from "./pages/admin.js";
-import { initScan, openScanPicker, startScan } from "./scan.js";
+import { initScan, openScanPicker, handleFiles, initStatements } from "./scan.js";
 import { initChat, openChat, startRec } from "./chat.js";
 import { initLock } from "./lock.js";
 import { refreshPush } from "./notify.js";
@@ -24,8 +24,8 @@ async function takeSharedFiles() {
     const c = await caches.open("pl-share"), files = [];
     for (const k of await c.keys()) { const r = await c.match(k), b = await r.blob(); files.push(new File([b], decodeURIComponent(k.url.split("/").pop()) || "shared.jpg", { type: b.type || "image/jpeg" })); await c.delete(k); }
     if (!files.length) return;
-    if (!aiReady()) { toast("Set up Gemini in Settings to read shared screenshots."); return; }
-    startScan(files.slice(0, 4));
+    if (!aiReady() && !files.some(f => /csv/i.test(f.type || "") || /\.csv$/i.test(f.name || ""))) { toast("Set up Gemini in Settings to read shared files."); return; }
+    handleFiles(files);
   } catch { toast("Couldn't open the shared image."); }
 }
 // long-press shortcuts on the app icon
@@ -45,7 +45,7 @@ function handleShortcut() {
 
 export function boot(fb) {
   [["home", home], ["entries", entries], ["loans", loans], ["bills", bills], ["goals", goals], ["settings", settings], ["admin", admin]].forEach(([id, p]) => { registerPage(id, p); p.init(); });
-  initShell(); initScan(); initChat(); initLock(); initNag();
+  initShell(); initScan(); initStatements(); initChat(); initLock(); initNag();
   $("quickX").addEventListener("click", () => { $("quick").hidden = true; });
   document.addEventListener("click", ev => { const b = ev.target.closest("[data-go-add]"); if (b) focusAdd("expense"); });
   connect(fb);

@@ -37,6 +37,8 @@ export const httpsCallable = (f, name) => async data => { window.__calls = (wind
     return { data: { ok: true, admin: false, group: i.group || null } };
   } if (data && data.ping) return { data: { ok: true } };
   const t = data.contents[0].parts[0].text; const plan = t.includes("Decide what to do");
+  window.__parts = (window.__parts || []).concat([data.contents[0].parts.map(x => x.inline_data ? x.inline_data.mime_type : "text")]);
+  if (window.__mockStatement && t.includes("bank statement (PDF)")) return { data: { text: JSON.stringify(window.__mockStatement) } };
   window.__prompts = (window.__prompts || []).concat(t);
   if (plan && window.__mockPlan) return { data: { text: JSON.stringify(window.__mockPlan) } };
   return { data: { text: plan ? JSON.stringify({ heard: null, calls: [], reply: "Hi from the server", suggestions: ["Show my bills"] }) : "ok" } }; };

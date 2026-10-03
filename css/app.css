@@ -521,3 +521,16 @@ body.chat-open .fab { display: none; }
 body.readonly .hero-acts [data-go-add], body.readonly .hero-acts [data-scan] { display: none; }
 .panel > .ghost, .panel > a.ghost, .panel-head .ghost { justify-self: start; }
 .stats .v { white-space: nowrap; overflow-wrap: normal; font-size: clamp(1rem, 4.6vw, 1.25rem); }
+/* bank accounts + statement imports */
+.acct-list { display: grid; gap: 8px; }
+.acct-row { display: grid; grid-template-columns: 88px minmax(0, 1fr) 84px auto; gap: 6px; align-items: center; }
+.acct-row select, .acct-row input { width: 100%; min-width: 0; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 8px 9px; }
+.stmt-link { justify-self: center; font-size: .86rem; padding: 0; margin-top: -4px; }
+.sub-h { font-size: .95rem; margin-top: 6px; }
+.imp { display: grid; gap: 12px; }
+.imp-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.imp-stats > div { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 2px; }
+.imp-stats b { font-family: var(--f-display); font-size: 1.3rem; font-weight: 600; }
+.imp-stats small { color: var(--ink-3); font-size: .8rem; }
+.imp-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .85rem; max-height: 260px; overflow-y: auto; }
+.imp-list li { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px dashed var(--line); padding-bottom: 3px; }

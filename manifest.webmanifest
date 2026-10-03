@@ -37,7 +37,12 @@
         {
           "name": "images",
           "accept": [
-            "image/*"
+            "image/*",
+            "application/pdf",
+            ".pdf",
+            "text/csv",
+            ".csv",
+            "text/comma-separated-values"
           ]
         }
       ]

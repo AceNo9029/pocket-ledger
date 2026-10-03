@@ -1,7 +1,8 @@
 // Backups: one JSON file with your own space and your groups, shared to Drive /
 // Files (or downloaded), a reminder every 14 days, and restoring your own space.
-import { $, lsGet, lsSet, toast, saveFile, todayISO, ago } from "./util.js";
-import { ctx, state, db, isViewer, hRef } from "./store.js";
+import { $, esc, money, lsGet, lsSet, toast, saveFile, todayISO, ago } from "./util.js";
+import { ctx, state, db, isViewer, isGroup, hRef } from "./store.js";
+import { undoImport } from "./scan.js";
 
 const COLS = ["entries", "goals", "loans", "recurring", "settlements"];
 async function buildBackup() {
@@ -48,12 +49,26 @@ export function initNag() {
 
 // ---------- Settings › Backup ----------
 let pending = null;
+// statement imports in this space, newest first, each with Undo
+function renderImports() {
+  const box = $("importList"), groups = {};
+  state.entries.filter(e => e.importId).forEach(e => { (groups[e.importId] = groups[e.importId] || { id: e.importId, label: e.importLabel || "Statement", n: 0, out: 0, at: e.created || 0 }); const g = groups[e.importId]; g.n++; if (e.type === "expense") g.out += +e.amount || 0; g.at = Math.min(g.at || Infinity, e.created || Infinity); });
+  const list = Object.values(groups).sort((a, b) => b.at - a.at);
+  box.innerHTML = isViewer() || isGroup() ? "" : list.map(g => `<div class="priv-row"><span>${esc(g.label)}<small class="hint"> · ${g.n} entries · ${esc(money(g.out, { whole: true }))} spent · imported ${esc(ago(g.at))}</small></span><button class="icon-btn" type="button" data-undoimp="${esc(g.id)}">Undo</button></div>`).join("");
+}
 export function renderSettings() {
+  renderImports();
   const last = +lsGet("pl-lastbackup") || 0;
   $("backupLast").textContent = last ? "Last backup from this device: " + ago(last) + "." : "No backup made on this device yet.";
   $("restoreBtn").hidden = isViewer();
 }
 export function initSettings() {
+  $("importList").addEventListener("click", async ev => {
+    const b = ev.target.closest("button[data-undoimp]"); if (!b) return;
+    if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Tap again to remove"; return; }
+    b.disabled = true;
+    if (await undoImport(b.dataset.undoimp)) setTimeout(renderImports, 600); else b.disabled = false;
+  });
   $("backupBtn").addEventListener("click", doBackup);
   $("restoreBtn").addEventListener("click", () => $("restoreFile").click());
   $("restoreFile").addEventListener("change", async ev => {

@@ -151,6 +151,25 @@ export const db = {
     b.delete(ctx.F.doc(col(c), id));
     return fire(b.commit());
   },
+  // many entries at once (statement imports): batched, and returns the new ids
+  async addMany(list) {
+    const F = ctx.F, ids = [];
+    for (let i = 0; i < list.length; i += 400) {
+      const b = F.writeBatch(ctx.db);
+      list.slice(i, i + 400).forEach(e => { const ref = F.doc(col("entries")); ids.push(ref.id); b.set(ref, clean(e)); });
+      await b.commit();
+    }
+    return ids;
+  },
+  // undoing an import: removed for good (not kept in Recently deleted)
+  async removeMany(ids) {
+    const F = ctx.F;
+    for (let i = 0; i < ids.length; i += 400) {
+      const b = F.writeBatch(ctx.db);
+      ids.slice(i, i + 400).forEach(id => b.delete(F.doc(col("entries"), id)));
+      await b.commit();
+    }
+  },
   saveGoal(id, g) { return db.saveDoc("goals", id, g); },
   saveSettings(partial) {
     const c = cleanS(Object.assign({}, state.settings, partial));
