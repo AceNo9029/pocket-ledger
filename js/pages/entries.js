@@ -5,7 +5,7 @@ import { state, ui, db, meId, isAll, isGroup, people, pname, pcolor, canEdit, ad
 import { createRecurring, budgetCheck, removeWithUndo } from "../actions.js";
 import { go } from "../shell.js";
 
-Object.assign(ui, { type: "expense", editId: null, filter: "all", search: "", confirm: null, openRow: null, catOther: false, goalSel: "" });
+Object.assign(ui, { type: "expense", editId: null, filter: "all", search: "", cat: "", confirm: null, openRow: null, catOther: false, goalSel: "" });
 
 // ---------- one entry row (also used on Home) ----------
 const META = { expense: ["var(--c-spent)", "out", "−"], income: ["var(--c-left)", "in", "+"], save: ["var(--c-saved)", "sv", "→ "], withdraw: ["var(--c-saved)", "in", "← "] };
@@ -67,13 +67,25 @@ function renderLedger() {
   if (ui.filter === "expense") es = es.filter(e => e.type === "expense");
   if (ui.filter === "income") es = es.filter(e => e.type === "income");
   if (ui.filter === "savings") es = es.filter(e => e.type === "save" || e.type === "withdraw");
+  // category picker: the categories in what's shown (before picking one)
+  const sel = $("catFilter"), cats = [...new Set(es.map(e => e.category || "Other"))].sort();
+  if (ui.cat && !cats.includes(ui.cat)) cats.unshift(ui.cat);
+  sel.innerHTML = `<option value="">All categories</option>` + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  sel.value = ui.cat;
+  if (ui.cat) es = es.filter(e => (e.category || "Other") === ui.cat);
   es.sort(byNewest);
+  // the total of whatever is chosen
+  const out = sum(es.filter(e => e.type === "expense"), e => +e.amount), inc = sum(es.filter(e => e.type === "income"), e => +e.amount);
+  const sv = sum(es.filter(e => e.type === "save"), e => +e.amount) - sum(es.filter(e => e.type === "withdraw"), e => +e.amount);
+  const what = [ui.cat, ui.filter === "expense" ? "Spent" : ui.filter === "income" ? "Income" : ui.filter === "savings" ? "Savings" : "", ui.search ? "\u201c" + ui.search + "\u201d" : ""].filter(Boolean).join(" · ") || "Everything";
+  $("ledgerTotal").innerHTML = es.length ? `<span><b>${esc(what)}</b> ${ui.search ? "in all months" : "in " + esc(monthName(ui.month))} · ${es.length} entr${es.length === 1 ? "y" : "ies"}</span><span class="lt-sums">${out ? `<b class="num neg">${esc(money(out))}</b> spent` : ""}${out && (inc || sv) ? " · " : ""}${inc ? `<b class="num pos">${esc(money(inc))}</b> in` : ""}${inc && sv ? " · " : ""}${sv ? `<b class="num">${esc(money(sv))}</b> saved` : ""}</span>${ui.cat ? `<button type="button" class="linkish" data-cat-clear="1">Show all categories</button>` : ""}` : "";
+  $("ledgerTotal").hidden = !es.length;
   if (!es.length) {
-    if (ui.search) { list.innerHTML = `<li class="empty"><span>Nothing matches "${esc(ui.search)}".</span></li>`; return; }
+    if (ui.search || ui.cat) { list.innerHTML = `<li class="empty"><span>Nothing matches${ui.cat ? " in " + esc(ui.cat) : ""}${ui.search ? ' "' + esc(ui.search) + '"' : ""}${ui.search ? "" : " in " + esc(monthName(ui.month))}.</span></li>`; return; }
     list.innerHTML = `<li class="empty"><span>${ui.filter === "all" ? "Nothing logged " + (isAll() || ui.view === meId() ? "" : "for " + esc(pname(ui.view)) + " ") + "in " + esc(monthName(ui.month)) + " yet." : "No entries of this kind this month."}</span>${state.readOnly ? "" : `<span class="hint">Use the form to add your income first, then each thing you spend.</span>`}</li>`;
     return;
   }
-  let html = ui.search ? `<li class="day">${es.length} match${es.length === 1 ? "" : "es"} · ${esc(money(sum(es, x => +x.amount)))} in total</li>` : "", lastDay = "";
+  let html = "", lastDay = "";
   es.forEach(e => {
     if (e.date !== lastDay) {
       lastDay = e.date;
@@ -237,6 +249,8 @@ export const page = {
       renderLedger();
     }));
     let st = null;
+    $("catFilter").addEventListener("change", () => { ui.cat = $("catFilter").value; renderLedger(); });
+    $("ledgerTotal").addEventListener("click", ev => { if (ev.target.closest("[data-cat-clear]")) { ui.cat = ""; renderLedger(); } });
     $("searchQ").addEventListener("input", () => { clearTimeout(st); st = setTimeout(() => { ui.search = $("searchQ").value.trim(); renderLedger(); }, 200); });
     wireRows($("ledger"), renderLedger);
     $("exportBtn").addEventListener("click", exportCsv);
@@ -254,3 +268,12 @@ export const page = {
   }
 };
 export { byNewest };
+
+// tapping a category (Home › Where the money went): every entry in it this month, with the total
+export function showCategory(c) {
+  ui.cat = c; ui.filter = "expense"; ui.search = "";
+  const q = $("searchQ"); if (q) q.value = "";
+  document.querySelectorAll(".filters [data-f]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.f === "expense")));
+  go("entries");
+  setTimeout(() => { renderLedger(); const el = $("ledgerTotal"); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 80);
+}

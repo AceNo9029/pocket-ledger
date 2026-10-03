@@ -27,7 +27,7 @@ const { start, URL0 } = require("./lib");
   check(/150\.00/.test(await T.text("#ledger")), "amount updated", await T.text("#ledger"));
   // search
   await p.fill("#searchQ", "food"); await p.waitForTimeout(400);
-  check(/1 match/i.test(await T.text("#ledger")), "search finds it", await T.text("#ledger"));
+  check(/1 entry/i.test(await T.text("#ledgerTotal")) && (await T.rows()).length === 1, "search finds it, with its total", await T.text("#ledgerTotal"));
   await p.fill("#searchQ", ""); await p.waitForTimeout(400);
 
   // home

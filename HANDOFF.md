@@ -41,7 +41,7 @@ No build step: GitHub Pages serves these files as they are. Plain ES modules, on
 | `js/motion.js`, `js/dock.js`, `js/quick.js` | Motion springs (time-based, follow the screen's refresh rate), the phone dock + side-menu highlight + More page, and Quick add from the + (see Navigation). |
 | `js/transfers.js` | Money sent between people in a shared group: send sheet, approval cards. |
 | `js/lock.js`, `js/notify.js`, `js/backup.js`, `js/util.js` | App lock, push notifications + callable helper, backup/restore/reminder, small helpers. |
-| `sw.js` | Service worker: network-first cache, share-target, push. **Bump `VERSION` (`pl-vNN`) on every release** and add any new file to `SHELL`. Latest: `pl-v26`. `index.html` loads `app.js?v=NN` and `css/app.css?v=NN`: bump those numbers too, so phones never mix a new page with old cached files (that caused a blank page after the first overhaul release). |
+| `sw.js` | Service worker: network-first cache, share-target, push. **Bump `VERSION` (`pl-vNN`) on every release** and add any new file to `SHELL`. Latest: `pl-v27`. `index.html` loads `app.js?v=NN` and `css/app.css?v=NN`: bump those numbers too, so phones never mix a new page with old cached files (that caused a blank page after the first overhaul release). |
 | `manifest.webmanifest`, `icons/` | PWA manifest (share_target, shortcuts) and icons. |
 | `firestore.rules` | Security rules (see below). |
 | `functions/` | Cloud Functions: `index.js`, `alerts.js`, `package.json` (Node 22, firebase-admin 13, firebase-functions 6). |
@@ -104,7 +104,7 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
 `tests/` has Playwright scenarios (`g1`–`g7`) and Firebase mocks (`tests/mockfb/`) served instead of the real gstatic SDK. The Firestore mock includes a small model of the security rules so tests catch writes the server would refuse. Each test prints ok/FAIL lines and exits non-zero on a failure.
 
     python3 -m http.server 8765          # in the repo root
-    cd tests && NODE_PATH=$(npm root -g) node g1.js   # then g2 … g11, in order
+    cd tests && NODE_PATH=$(npm root -g) node g1.js   # then g2 … g12, in order
 
 `g1` seeds an old-style household and checks the migration; later tests chain on `pl_state*.json` in the temp folder. g1 migration · g2 second person, groups, view requests, view-only · g3 joining from a group link · g4 a new person through every page (entries, budgets, loans, bills, goals, settings, new group, wide/phone layout) · g5 invites · g6 admin · g7 trash, backup, CSV, backup reminder, chat confirm + Edit first, shortcuts · g8 bank statement import + Undo + bank accounts list (made-up data) · g9 money sent between people · g11 MIB CSV import, duplicate cross-checks, slip prompt · g10 dock (4/6 tabs, scrub, More), Quick add + Undo, hold-the-+ shortcuts, goal Undo, Settings › Appearance, laptop side highlight.
 
@@ -112,6 +112,7 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
 
 - October 2026: front-end overhaul. Same Firestore data, rules and functions; the single generated page became separate modules and pages with a side menu / tab bar. Behaviour changes worth knowing: in your own space and in groups you always add things as yourself (as before), the Gemini key/model now has its own Save button, and the old "top buttons show icons/words" setting went away with the top toolbar.
 - October 2026 (pl-v24): the dock, Quick add, Undo instead of confirmations, motion settings in Appearance.
+- October 2026 (pl-v27): tap a category on Home (Where the money went) to see its entries; Entries has a category picker and a total line for whatever is shown (`ui.cat`, `#ledgerTotal`, test g12).
 - October 2026 (pl-v26): MIB CSV statements, cross-checked duplicates, tighter account-number rules for Gemini.
 - October 2026 (pl-v25): highlights lined up at every text size (Small was off), dock no longer tucks away, refresh rate measured while moving.
 

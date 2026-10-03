@@ -95,7 +95,7 @@ function renderCats() {
   $("catNote").textContent = total ? money(total) + " total" : "";
   if (!rows.length) { $("cats").innerHTML = `<div class="empty small">Spending by category will show here.</div>`; return; }
   const max = rows[0][1];
-  $("cats").innerHTML = rows.map(([c, v]) => `<div class="cat" title="${esc(c)}: ${esc(money(v))} (${Math.round(v / total * 100)}%)"><span class="n">${esc(c)}</span><div class="track"><div class="fill" style="width:${Math.max(v / max * 100, 1.5)}%"></div></div><span class="v num">${esc(money(v, { whole: true }))}<small>${Math.round(v / total * 100)}%</small></span></div>`).join("");
+  $("cats").innerHTML = rows.map(([c, v]) => `<button type="button" class="cat" data-cat-go="${esc(c)}" title="See every ${esc(c)} entry: ${esc(money(v))} (${Math.round(v / total * 100)}%)"><span class="n">${esc(c)}</span><div class="track"><div class="fill" style="width:${Math.max(v / max * 100, 1.5)}%"></div></div><span class="v num">${esc(money(v, { whole: true }))}<small>${Math.round(v / total * 100)}%</small></span></button>`).join("");
 }
 
 function renderBudgets() {

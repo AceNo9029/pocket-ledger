@@ -3,7 +3,7 @@ import { $, toast } from "./util.js";
 import { ctx, state, connect, onChange, lastSeenMark } from "./store.js";
 import { registerPage, initShell, renderShell, route, go } from "./shell.js";
 import { page as home } from "./pages/home.js";
-import { page as entries, focusAdd } from "./pages/entries.js";
+import { page as entries, focusAdd, showCategory } from "./pages/entries.js";
 import { page as loans } from "./pages/loans.js";
 import { page as bills } from "./pages/bills.js";
 import { page as goals } from "./pages/goals.js";
@@ -50,7 +50,7 @@ export function boot(fb) {
   [["home", home], ["entries", entries], ["loans", loans], ["bills", bills], ["goals", goals], ["settings", settings], ["admin", admin], ["more", { init() {}, render() { dockBadges(); } }]].forEach(([id, p]) => { registerPage(id, p); p.init(); });
   initShell(); initDock(); initQuick(); initScan(); initStatements(); initTransfers(); initChat(); initLock(); initNag();
   $("quickX").addEventListener("click", () => { $("quick").hidden = true; });
-  document.addEventListener("click", ev => { const b = ev.target.closest("[data-go-add]"); if (b) focusAdd("expense"); });
+  document.addEventListener("click", ev => { const b = ev.target.closest("[data-go-add]"); if (b) focusAdd("expense"); const c = ev.target.closest("[data-cat-go]"); if (c) showCategory(c.dataset.catGo); });
   connect(fb);
   $("app").hidden = false;
   let wasAdmin = null;
