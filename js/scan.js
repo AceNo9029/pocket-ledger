@@ -17,6 +17,13 @@ export function openScanPicker() {
   $("scanFile").click();
 }
 
+// every account ending a person has saved: the old single field plus the accounts list (yours from your private space)
+function acctDigits(p) {
+  const src = p.id === meId() && state.my ? Object.assign({}, p, state.my) : p, d = new Set();
+  String(src.acct || "").split(/[,\s]+/).forEach(x => { if (/^\d{4}$/.test(x)) d.add(x); });
+  (src.accounts || []).forEach(a => { if (/^\d{4}$/.test(a.last4 || "")) d.add(a.last4); });
+  return [...d];
+}
 function scanPrompt(n) {
   const st = state.settings, cur = st.currency || "MVR", ps = people(), me = pname(meId());
   const goals = visibleGoals(meId()).map(g => g.name);
@@ -27,7 +34,7 @@ function scanPrompt(n) {
     "- Today is " + todayISO() + ". The tracker's currency is " + cur + ".",
     "- People in the tracker: " + ps.map(p => p.name).join(", ") + ". The person adding this is " + me + ".",
     "- Names on their bank accounts: " + ps.map(p => p.name + ": " + ((p.bank || "").trim() || "not set")).join("; ") + ".",
-    "- Their bank account numbers end in: " + ps.map(p => p.name + ": " + ((p.acct || "").trim() || "not set")).join("; ") + ".",
+    "- Their bank account numbers end in (last 4 digits of an account number only): " + ps.map(p => p.name + ": " + (acctDigits(p).join(", ") || "not set")).join("; ") + ".",
     "- Expense categories: " + EXP_CATS.join(", ") + ".",
     "- Income categories: " + INC_CATS.join(", ") + ".",
     "- Savings goals: " + (goals.length ? goals.join(", ") : "none") + ".",
@@ -36,7 +43,7 @@ function scanPrompt(n) {
     "- A shop receipt, bill or TAX INVOICE (a printed slip, often photographed in someone's hand, maybe creased or at an angle): it is ONE expense, never income, never a transfer. The amount is the final total actually paid: use \"Grand Total\", \"Total\", \"Net Total\" or \"Amount Due\" (after discounts, including GST/TGST and service charge). Ignore Sub Total, GST lines, Tendered/Cash/Paid, Change/Balance and item rates. Small rounding differences between Sub Total + GST and Grand Total are normal: trust the Grand Total and don't ask about it. Do not list line items separately. Note: the shop name (from the top of the slip), then EVERY item on the slip in short plain words (1-3 words each, add x2 for quantities above 1), like \"Faza Link: bolster case x2, bucket, cutting board, hanger, bolster\". Count the item lines and check none is missed. Only if the note would go over 150 characters, list the biggest items and end with \"+ N more\". Pick the category from what was bought: groceries or food items -> Food & groceries; restaurant or cafe -> Eating out; household items, clothes, electronics, hardware -> Shopping; pharmacy -> Health; fuel or fares -> Transport.",
     "- On a shop receipt, a \"Remittance instruction\", beneficiary name, BML/MIB account numbers, TIN, cashier, bill number, phone or Viber numbers are just the shop's details. They do NOT make it a bank transfer and are not the amount. \"Cust. Name: Cash Sales\" just means a walk-in customer.",
     "- A bank app screen, transfer confirmation or SMS alert: each money-out is an expense, each money-in is income (salary, transfers received). A transfer clearly into the user's own savings account is type \"save\".",
-    "- Bank transfer receipts (for example Bank of Maldives or MIB, showing From, To, Reference, Transaction date and Amount): From is the sender and To is the recipient. Account numbers decide first: if the To account number ends in one of a person's digits, it is money IN (income) for that person, whatever name is shown next to it (senders often save people under nicknames like \"Quraan sir\"). If the From account ends in a person's digits, it is money OUT (expense) by that person. Otherwise match names loosely (initials, abbreviations like AMTH or MOHD, and dots are fine): From matching a person means money out by them, To matching means money in for them. If nothing matches, set type to null and ask whether the money went out or came in, naming the two sides. In the note, name the OTHER party: \"From AMTH.SHIZLEEN\" for money in, \"Transfer to Ali\" for money out. For money in, ignore the nickname the sender used for the recipient. For money out, pick the category from the recipient when it is clear (a shop is Shopping), otherwise Other. For money in, use the income categories (Side income if unsure).",
+    "- Bank transfer receipts (for example Bank of Maldives or MIB, showing From, To, Reference, Transaction date and Amount): From is the sender and To is the recipient. Decide the direction by cross-checking two things, the account number and the name. (1) Account: only a printed ACCOUNT NUMBER counts (a long digit string, usually 13 to 17 digits, shown under From/To, Account, Beneficiary or Debit/Credit account). Compare its LAST 4 digits with the people's digits. Amounts (like 1,000.00 or 1000), references, dates, times, phone numbers and card numbers are NEVER account numbers, even when they contain the same 4 digits. If the To account ends in a person's digits, it points to money IN for that person; if the From account does, it points to money OUT. (2) Name: match the From and To names loosely against the people's names and bank names (initials, abbreviations like AMTH or MOHD, and dots are fine). The account number wins over the name, because senders often save people under nicknames like \"Quraan sir\". If the account and the name point in opposite directions, or only part of an account number is visible, or nothing matches, set type to null and ask whether the money went out or came in, naming the two sides. In the note, name the OTHER party: \"From AMTH.SHIZLEEN\" for money in, \"Transfer to Ali\" for money out. For money in, ignore the nickname the sender used for the recipient. For money out, pick the category from the recipient when it is clear (a shop is Shopping), otherwise Other. For money in, use the income categories (Side income if unsure).",
     "- Maldivian receipts, invoices and bank screens write dates as DD/MM/YYYY (day first). 03/10/2026 is 3 October 2026, never March. Use the bill or paid date, not a printed time.",
     "- A list of several transactions (for example a statement): one entry for each.",
     "- Ignore balances and account or card numbers, and never copy account or card numbers into the note. Do copy the transaction reference (like BLAZ847926686391) into ref, if one is shown.",
@@ -116,7 +123,8 @@ export function showProposals(list) {
 function dupOf(it) {
   if (it.ref) { const same = state.entries.find(e => e.ref && e.ref === it.ref); if (same) return same; }
   if (!it.amount || !it.date) return null;
-  return state.entries.find(e => e.date === it.date && Math.abs(+e.amount - it.amount) < 0.005 && e.type === it.type && e.person === meId()) || null;
+  // same day, amount and type, and not contradicted by a different bank reference
+  return state.entries.find(e => e.date === it.date && Math.abs(+e.amount - it.amount) < 0.005 && e.type === it.type && e.person === meId() && !(e.ref && it.ref && e.ref !== it.ref)) || null;
 }
 function needs(it) {
   const miss = [];
@@ -261,6 +269,36 @@ function bmlRows(rows) {
   }
   return out;
 }
+// Maldives Islamic Bank (MIB) CSV export: POSTED DATE, VALUE DATE, TRANSACTION TYPE, REFERENCE, DESCRIPTION, AMOUNT (signed), RUNNING BALANCE
+// DESCRIPTION is "DD-MM-YYYY HH-MM-SS | other side | remark"; for Favara the other side is "BANK - NAME, remark" in the 3rd part.
+export function isMibCsv(rows) { const h = (rows[0] || []).map(x => x.toUpperCase()); return h.includes("POSTED DATE") && h.includes("RUNNING BALANCE") && h.includes("AMOUNT"); }
+export function mibRows(rows) {
+  const h = rows[0].map(x => x.toUpperCase()), at = n => h.indexOf(n), out = [];
+  const iP = at("POSTED DATE"), iT = at("TRANSACTION TYPE"), iR = at("REFERENCE"), iD = at("DESCRIPTION"), iA = at("AMOUNT");
+  for (const r of rows.slice(1)) {
+    const type = String(r[iT] || "").trim(), amt = money2(r[iA]), posted = String(r[iP] || "").slice(0, 10);
+    if (!(Math.abs(amt) > 0) || !ISO.test(posted) || /b\/f balance|c\/f balance|opening|closing/i.test(type)) continue;
+    const parts = String(r[iD] || "").split("|").map(x => x.trim());
+    // the time stamp in the description is when it happened; keep it unless it's far from the posting (bank batch jobs)
+    let date = posted; const dd = dmy(parts[0]);
+    if (dd && Math.abs(daysBetween(posted, dd)) <= 3) date = dd;
+    let name = "", kind = "other", ref = String(r[iR] || "").trim(), bank = "";
+    if (/favara|ips/i.test(type)) {
+      kind = "transfer";
+      const m = (parts[2] || "").match(/^([A-Z]{2,5})\s*-\s*([^,]+)/i);
+      if (m) { bank = m[1].toUpperCase(); name = m[2].trim(); }
+      if (/^MA[DL][A-Z]*IPS\w+/i.test(parts[1] || "")) ref = ref || parts[1].split(/\s+/)[0];
+    } else if (/transfer/i.test(type)) { kind = "transfer"; name = parts[1] || ""; }
+    else if (/pos|purchase|card payment|ecom/i.test(type)) { kind = "purchase"; name = (parts[1] || "").replace(/^[-\s]+/, "").replace(/@\w+$/, "").trim(); if (!/[a-z]{3}/i.test(name)) name = "Card payment"; }
+    else if (/fee|charge|commission/i.test(type)) { kind = "fee"; name = type; }
+    else if (/profit/i.test(type)) { name = "MIB profit"; }
+    else { name = (parts[1] && /[a-z]{3}/i.test(parts[1]) ? parts[1] : type).replace(/\s+/g, " "); kind = /pay/i.test(type) ? "bill" : "other"; }
+    const remark = kind === "transfer" && !/favara|ips/i.test(type) ? (parts[2] || "") : "";
+    out.push({ date, dir: amt < 0 ? "out" : "in", amount: Math.abs(amt), name: name.replace(/\s+/g, " ").trim(), ref, kind, label: type.replace(/\d{6,}/g, "").trim(),
+      remark: remark && remark !== "-" ? remark : "", otherBank: bank, acct: (String(r[iD] || "").match(/\b\d{10,}\b/g) || []).join(" ") });
+  }
+  return out;
+}
 function statementPrompt(kind) {
   return [
     "You are reading a bank statement (" + kind + ") from the Maldives for a personal money tracker. List EVERY transaction. Reply with JSON only.",
@@ -272,8 +310,9 @@ function statementPrompt(kind) {
     "- other_party: the shop or person on the other side, as written (for card purchases the merchant name; for transfers the person or company; for Favara/IPS the name shown).",
     "- reference: the transaction reference like BLAZ123..., RB24..., or the MADVIPS/MALBIPS code, or \"\".",
     "- kind: \"purchase\" (card), \"transfer\", \"fee\" (bank charges) or \"other\".",
-    "- other_account: the other side's account number if one is printed, else \"\".",
-    "Skip only opening/closing balance lines, page headers and totals. Keep the statement's order. Don't invent or merge rows."
+    "- other_account: the other side's ACCOUNT NUMBER (a long digit string, usually 13 to 17 digits) if one is printed, else \"\". Never put an amount, reference, date, time, phone or card number here.",
+    "Skip only opening/closing balance lines (B/F, C/F), page headers and totals. Keep the statement's order. Don't invent or merge rows: two transactions with the same amount on the same day are two rows; list both.",
+    "Before replying, check yourself: the number of rows equals the number of transactions in the statement, and the money in minus money out matches the change in balance when balances are shown."
   ].join("\n");
 }
 async function aiRows(file) {
@@ -298,7 +337,7 @@ const normAi = rows => (Array.isArray(rows) ? rows : []).map(r => Array.isArray(
 // ---------- deciding what to add ----------
 const toks = s => String(s || "").toUpperCase().replace(/[^A-Z ]/g, " ").split(/\s+/).filter(Boolean);
 const skel = t => t.replace(/[AEIOU]/g, "");
-const tokMatch = (t, u) => t === u || (u.length === 1 && t[0] === u) || (t.length >= 3 && u.length >= 3 && (t.startsWith(u) || u.startsWith(t))) || (t.length >= 4 && u.length >= 3 && skel(t).length >= 2 && skel(t) === skel(u));
+const tokMatch = (t, u) => t === u || (u.length === 1 && t[0] === u) || (t.length === 1 && u[0] === t) || (t.length >= 3 && u.length >= 3 && (t.startsWith(u) || u.startsWith(t))) || (t.length >= 4 && u.length >= 3 && skel(t).length >= 2 && skel(t) === skel(u));
 export function nameMatches(own, other) {
   const a = toks(own), b = toks(other);
   return a.length >= 2 && a.every(t => b.some(u => tokMatch(t, u)));
@@ -358,27 +397,49 @@ async function importStatement(file) {
   try {
     if (!navigator.onLine) throw { code: "offline" };
     let rows = [], extra = {};
-    if (!/pdf/i.test(file.type || "") && !/\.pdf$/i.test(file.name || "")) rows = bmlRows(csvRows(await file.text()));
-    if (rows.length) extra.bank = "BML";
-    else { const r = await aiRows(file); rows = r.rows; extra = r; }
+    if (!/pdf/i.test(file.type || "") && !/\.pdf$/i.test(file.name || "")) {
+      const grid = csvRows(await file.text());
+      if (isMibCsv(grid)) { rows = mibRows(grid); extra.bank = "MIB"; }
+      else { rows = bmlRows(grid); if (rows.length) extra.bank = "BML"; }
+    }
+    // MIB names the file after the account number: that account is yours
+    const fileAcct = String(file.name || "").match(/^(\d{10,})/);
+    if (fileAcct) extra.last4 = fileAcct[1].slice(-4);
+    if (!rows.length) { const r = await aiRows(file); rows = r.rows; extra = Object.assign(r, extra.last4 && !r.last4 ? { last4: extra.last4 } : {}); }
     if (!rows.length) throw { code: "empty" };
     const own = ownInfo(extra);
     if (!own.names.length && !own.last4.size && !importAnyway) return askForDetails(file);
     const isOwn = r => (r.acct && String(r.acct).split(/\s+/).some(d => d.length >= 8 && own.last4.has(d.slice(-4)))) || own.names.some(n => nameMatches(n, r.name));
-    const used = new Set(), mine = state.entries.filter(e => e.person === meId() || !e.person);
+    const used = new Set(), seenRefs = new Set(), mine = state.entries.filter(e => e.person === meId() || !e.person);
+    // "Already in Pocket Ledger" is decided by cross-checking several things, so genuinely repeated
+    // payments (the same 645 every month, two 30s to the same person on one day) are never skipped:
+    //  1. the bank reference is the same → the same transaction
+    //  2. a different bank reference on both → a different transaction, whatever the amount
+    //  3. otherwise: same type AND same amount AND within 2 days, and each existing entry can only match one row;
+    //     the best match is the one whose note names the same person/shop, then the same day, then the closest day.
+    //     Entries that came from another statement only match by reference (their references are exact).
+    const words = s => new Set(toks(s).filter(w => w.length >= 3 && !/^(FROM|TRANSFER|PAID|BACK|LOAN|THE|AND)$/.test(w)));
     const dupOfRow = r => {
       const type = r.dir === "out" ? "expense" : "income";
       if (r.ref) { const e = mine.find(x => x.ref && x.ref === r.ref); if (e) return e; }
-      const e = mine.find(x => !used.has(x.id) && (x.type === type || (x.loanId && x.type === type)) && Math.abs(+x.amount - r.amount) < 0.005 && x.date && Math.abs(daysBetween(x.date, r.date)) <= 2);
-      if (e) used.add(e.id);
+      const rw = words(r.name);
+      const cands = mine.filter(x => !used.has(x.id) && x.type === type && Math.abs(+x.amount - r.amount) < 0.005 && x.date && Math.abs(daysBetween(x.date, r.date)) <= 2
+        && !(x.ref && r.ref && x.ref !== r.ref) && !(x.source === "statement" && x.ref));
+      if (!cands.length) return null;
+      const score = x => { const xw = words(x.note); let n = 0; rw.forEach(w => { if ([...xw].some(v => tokMatch(w, v))) n++; }); return n * 10 + (x.date === r.date ? 3 : 0) - Math.abs(daysBetween(x.date, r.date)); };
+      const e = cands.sort((a, b) => score(b) - score(a))[0];
+      used.add(e.id);
       return e;
     };
     const res = { add: [], dup: [], own: [] };
     rows.forEach(r => {
+      if (r.ref && seenRefs.has(r.ref)) return res.dup.push(r); // the same line twice in one file
+      if (r.ref) seenRefs.add(r.ref);
       if (isOwn(r)) return res.own.push(r);
       if (dupOfRow(r)) return res.dup.push(r);
       const nm = titleCase(r.name) || titleCase(r.label) || "Bank";
-      r.note = (r.kind === "purchase" ? nm : r.dir === "out" ? (r.kind === "fee" ? nm : "Transfer to " + nm) : "From " + nm).slice(0, 160);
+      r.note = ((r.kind === "purchase" || r.kind === "bill" || r.kind === "fee" || r.name === "MIB profit") ? nm : r.dir === "out" ? "Transfer to " + nm : "From " + nm) + (r.remark ? ": " + r.remark : "");
+      r.note = r.note.slice(0, 160);
       res.add.push(r);
     });
     status("Sorting " + res.add.length + " transactions into categories…", true);
