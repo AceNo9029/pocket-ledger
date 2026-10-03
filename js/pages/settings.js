@@ -93,9 +93,9 @@ function syncAppearance() {
   $("dockFit").textContent = tabs === 6 ? "All six pages are in your dock, three on each side of the +."
     : dockDraft.length < 3 ? "Pick " + (3 - dockDraft.length) + " more. The 4th tab is More, which holds the rest."
     : "Three pages plus More, two on each side of the +." + (six ? "" : " Your screen is too narrow for 6 tabs, so it stays at 4. The dock only uses 4 or 6 so it stays balanced.");
-  const hz = refreshHz();
-  $("hzNote").textContent = hz ? "Your screen refreshes " + hz + " times a second (" + hz + " Hz). Animations follow it automatically." : "Animations follow your screen's refresh rate automatically (60, 90, 120 Hz or more).";
-  if (!hz) measureHz(() => { const n = $("hzNote"); if (n) n.textContent = "Your screen refreshes " + refreshHz() + " times a second (" + refreshHz() + " Hz). Animations follow it automatically."; });
+  const hz = refreshHz(), hzText = n => "Your screen runs at up to " + n + " Hz while things move. Animations follow it automatically.";
+  $("hzNote").textContent = hz ? hzText(hz) : "Animations follow your screen's refresh rate automatically (60, 90, 120 Hz or more).";
+  if (!hz) measureHz(() => { const n = $("hzNote"); if (n) n.textContent = hzText(refreshHz()); });
   $("setBuzz").checked = !!M.buzz;
 }
 let dockDraft = M.dock.slice();

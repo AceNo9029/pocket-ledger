@@ -24,8 +24,11 @@ export const icon = (p, size) => `<svg width="${size || 22}" height="${size || 2
 const phoneMQ = window.matchMedia("(max-width: 899.98px)");
 const isPhone = () => phoneMQ.matches;
 const MIN_TAB = 46, SLOT = 62;
+// Settings › Text size zooms the page; screen measurements must be divided by it
+export const zoom = () => { const z = parseFloat(getComputedStyle(document.body).zoom); return z > 0 ? z : 1; };
+const layoutWidth = () => Math.min(window.innerWidth / zoom(), 560);
 // 6 tabs only when each still gets a comfortable thumb-sized target
-export function fitsSix() { const w = Math.min(window.innerWidth, 560) - 24 - 12 - SLOT; return Math.floor(w / MIN_TAB) >= 6; }
+export function fitsSix() { const w = layoutWidth() - 24 - 12 - SLOT; return Math.floor(w / MIN_TAB) >= 6; }
 export const dockPages = () => (M.tabs === 6 && fitsSix()) ? PAGES.slice() : M.dock.concat("more");
 const tabFor = p => { const l = dockPages(); return l.includes(p) ? p : "more"; };
 
@@ -39,7 +42,7 @@ export function buildDock() {
   dock.innerHTML = `<i class="dk-blob" id="dkBlob"></i><div class="dk-half">${list.slice(0, half).map(btn).join("")}</div><div class="dk-slot" aria-hidden="true"></div><div class="dk-half">${list.slice(half).map(btn).join("")}</div>`;
   dock.dataset.n = list.length;
   blob = $("dkBlob"); tabs = [...dock.querySelectorAll(".dk-tab")];
-  const per = (Math.min(window.innerWidth, 560) - 24 - 12 - SLOT) / list.length;
+  const per = (layoutWidth() - 24 - 12 - SLOT) / list.length;
   dock.classList.toggle("tight", per < 64);
   renderMore(); dockBadges();
   requestAnimationFrame(() => { aim(); L.snap(); R.snap(); H.snap(); paint(); });
@@ -70,8 +73,8 @@ const INSET = 5;
 function aim() {
   if (scrub || !dock) return;
   const el = tabs.find(t => t.dataset.p === tabFor(currentPage())); if (!el) return;
-  const d = dock.getBoundingClientRect(), r = el.getBoundingClientRect();
-  L.t = r.left - d.left + INSET; R.t = r.right - d.left - INSET;
+  // layout positions (not screen positions): unaffected by text-size zoom or transforms
+  L.t = el.offsetLeft + INSET; R.t = el.offsetLeft + el.offsetWidth - INSET;
 }
 function tune() {
   const { k, zeta, trail } = params();
@@ -102,8 +105,7 @@ let navBlob = null;
 function aimNav() {
   const nav = $("nav"), a = nav && nav.querySelector(`a[data-nav="${currentPage()}"]`);
   if (!a || a.offsetParent === null) return false;
-  const n = nav.getBoundingClientRect(), r = a.getBoundingClientRect();
-  T.t = r.top - n.top + nav.scrollTop; B.t = r.bottom - n.top + nav.scrollTop; return true;
+  T.t = a.offsetTop; B.t = a.offsetTop + a.offsetHeight; return true;
 }
 const navClock = clock(dt => {
   if (isPhone() || !navBlob) return false;
@@ -138,7 +140,7 @@ function onPage(id, first) {
   if (dock) {
     const cur = tabFor(id);
     tabs.forEach(t => { const on = t.dataset.p === cur; t.classList.toggle("on", on); if (on) t.setAttribute("aria-current", "page"); else t.removeAttribute("aria-current"); });
-    showDock(true); keepUntil = performance.now() + 1100; kick();
+    keepUntil = performance.now() + 1100; kick();
   }
   kickNav(!first);
 }
@@ -155,10 +157,10 @@ function wireDock() {
     if (!press || e.pointerId !== press.id) return;
     if (!press.moved && Math.abs(e.clientX - press.x) < 8) return;
     press.moved = true; scrub = true;
-    const d = dock.getBoundingClientRect(), x = e.clientX - d.left, half = Math.max(22, tabs[0].getBoundingClientRect().width / 2);
+    const d = dock.getBoundingClientRect(), x = (e.clientX - d.left) / zoom(), half = Math.max(22, tabs[0].offsetWidth / 2);
     L.t = x - half; R.t = x + half;
     let over = press.over, best = 1e9;
-    tabs.forEach((t, i) => { const r = t.getBoundingClientRect(), dist = Math.abs((r.left + r.right) / 2 - d.left - x); if (dist < best) { best = dist; over = i; } });
+    tabs.forEach((t, i) => { const dist = Math.abs(t.offsetLeft + t.offsetWidth / 2 - x); if (dist < best) { best = dist; over = i; } });
     if (over !== press.over) { tabs.forEach((t, i) => t.classList.toggle("hover", i === over)); press.over = over; buzz(5); }
     kick();
   }, { passive: true });
@@ -181,16 +183,6 @@ function pick(p) {
   go(p);
 }
 
-// ---------- the dock tucks away a little while you scroll down ----------
-const D = new Spring(0);
-let lastY = 0;
-const shrinkClock = clock(dt => {
-  const { k, zeta } = params(); D.k = k * .8; D.z = Math.min(1, zeta + .1); D.run(dt);
-  const w = $("dockWrap"); if (w) w.style.setProperty("--tuck", D.x.toFixed(4));
-  return !D.idle();
-});
-export function showDock(on) { D.t = on ? 0 : 1; if (reduced()) { D.snap(); const w = $("dockWrap"); if (w) w.style.setProperty("--tuck", D.x); return; } shrinkClock.kick(); }
-
 export function initDock() {
   applyEase();
   dock = $("dock");
@@ -202,11 +194,6 @@ export function initDock() {
   ["settingsBadge", "billsBadge"].forEach(id => { const el = $(id); if (el) mo.observe(el, { attributes: true, attributeFilter: ["hidden"] }); });
   onRoute(onPage);
   document.addEventListener("click", e => { const b = e.target.closest("[data-more]"); if (b) go(b.dataset.more); });
-  addEventListener("scroll", () => {
-    if (!isPhone()) return;
-    const y = window.scrollY, dy = y - lastY; lastY = y;
-    if (dy > 6 && y > 60) showDock(false); else if (dy < -6 || y < 20) showDock(true);
-  }, { passive: true });
   let rz = 0, wasPhone = isPhone(), lastW = window.innerWidth;
   addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => {
     // the phone's keyboard opening changes only the height: leave the dock alone

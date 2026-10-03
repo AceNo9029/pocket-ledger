@@ -549,14 +549,13 @@ html { -webkit-tap-highlight-color: transparent; }
 .dk-wrap, .dk-sat, .qa-wrap { display: none; }
 @media (max-width: 899.98px) {
   .nav { display: none; }
-  .main { padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)); }
-  .dk-wrap { display: block; position: fixed; z-index: 15; left: 0; right: 0; bottom: 0; padding: 0 12px calc(12px + env(safe-area-inset-bottom, 0px)); pointer-events: none; --tuck: 0; }
+  .main { padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)); overflow-x: clip; }
+  .dk-wrap { display: block; position: fixed; z-index: 15; left: 0; right: 0; bottom: 0; padding: 0 12px calc(12px + env(safe-area-inset-bottom, 0px)); pointer-events: none; }
   .dk-wrap > * { max-width: 536px; margin-inline: auto; }
   .dk { pointer-events: auto; position: relative; height: 66px; border-radius: 26px; background: var(--dk-glass); display: flex; align-items: stretch; padding: 0 6px;
     -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6);
     box-shadow: 0 10px 30px var(--dk-shadow), inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
-    touch-action: none; user-select: none; -webkit-user-select: none; transform-origin: 50% 100%; will-change: transform;
-    transform: translate3d(0, calc(var(--tuck) * 14px), 0) scale(calc(1 - var(--tuck) * .08)); }
+    touch-action: none; user-select: none; -webkit-user-select: none; transform-origin: 50% 100%; }
   .dk-blob { position: absolute; top: 9px; bottom: 9px; left: 0; width: 10px; border-radius: 18px; background: var(--dk-soft); will-change: transform, width; pointer-events: none; transform-origin: 50% 50%; }
   .dk-half { flex: 1 1 0; min-width: 0; display: flex; }
   .dk-slot { flex: 0 0 62px; }
@@ -578,8 +577,7 @@ html { -webkit-tap-highlight-color: transparent; }
   .dk-tab .badge.dot { top: 14px; left: calc(50% + 8px); }
   .dk-plus { pointer-events: auto; position: absolute; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px) + 20px); width: 62px; height: 62px; margin: 0 0 0 -31px; border: 0; border-radius: 22px;
     background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; z-index: 2; touch-action: none; cursor: pointer; will-change: transform;
-    box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 45%, transparent);
-    transform: translate3d(0, calc(var(--tuck) * 14px), 0) scale(calc(1 - var(--tuck) * .1)); transition: scale .4s var(--spring-ease, ease); }
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 45%, transparent); transition: scale .4s var(--spring-ease, ease); }
   .dk-plus.down { scale: .9; transition-duration: .12s; }
   .dk-plus svg { transition: transform .45s var(--spring-ease, ease); }
   .dk-plus.open svg { transform: rotate(45deg); }

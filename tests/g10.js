@@ -110,6 +110,23 @@ const { start, loadState } = require("./lib");
   await p.click('#nav a[data-nav="loans"]'); await p.waitForTimeout(900);
   const nb = await p.$eval(".nav-blob", e => e.getBoundingClientRect().top), na = await p.$eval('#nav a[data-nav="loans"]', e => e.getBoundingClientRect().top);
   check(Math.abs(nb - na) < 3, "side highlight moved to Loans", [nb, na]);
+  // highlight lines up with every tab at every text size (Small/Large zoom the page), dock and side menu
+  const off = async () => p.evaluate(() => {
+    const vis = e => e && e.offsetParent !== null;
+    if (vis(document.getElementById("dock"))) { const b = document.getElementById("dkBlob").getBoundingClientRect(), t = document.querySelector("#dock .dk-tab.on").getBoundingClientRect();
+      return Math.max(Math.abs((b.left + b.right) / 2 - (t.left + t.right) / 2), Math.abs((b.top + b.bottom) / 2 - (t.top + t.bottom) / 2)); }
+    const b = document.querySelector(".nav-blob").getBoundingClientRect(), a = document.querySelector('#nav a[aria-current="page"]').getBoundingClientRect();
+    return Math.max(Math.abs(b.top - a.top), Math.abs(b.bottom - a.bottom), Math.abs((b.left + b.right) / 2 - (a.left + a.right) / 2)); });
+  const bad = [];
+  for (const fs of ["s", "m", "l", "xl"]) {
+    await p.evaluate(f => { localStorage.setItem("pl-fs", f === "m" ? "" : f); window.plApplyTheme(); }, fs);
+    for (const [w, h, pages] of [[412, 900, ["home", "entries", "bills", "more", "goals"]], [900, 412, ["home", "loans", "settings", "admin"]]]) {
+      await p.setViewportSize({ width: w, height: h }); await p.waitForTimeout(250);
+      for (const pg of pages) { await T.nav(pg); await p.waitForTimeout(1100); const d = await off(); if (d > 2) bad.push(fs + "/" + w + "/" + pg + ": " + d.toFixed(1)); }
+    }
+  }
+  await p.evaluate(() => { localStorage.removeItem("pl-fs"); window.plApplyTheme(); });
+  check(!bad.length, "highlight sits on the right tab at every text size, phone and landscape", bad);
   check((await T.denied()).length === 0, "no rule denials", await T.denied());
   await T.end();
 })();

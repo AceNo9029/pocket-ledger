@@ -32,7 +32,7 @@ export class Spring {
 // a frame clock: gives each callback the real seconds since its last frame
 export function clock(fn) {
   let raf = 0, last = 0;
-  const tick = now => { const dt = last ? (now - last) / 1000 : 1 / 120; last = now; if (fn(dt, now) === false) { raf = 0; last = 0; return; } raf = requestAnimationFrame(tick); };
+  const tick = now => { const dt = last ? (now - last) / 1000 : 1 / 120; if (last) sample(now - last); last = now; if (fn(dt, now) === false) { raf = 0; last = 0; return; } raf = requestAnimationFrame(tick); };
   return { kick() { if (!raf) raf = requestAnimationFrame(tick); }, get running() { return !!raf; } };
 }
 
@@ -60,13 +60,19 @@ export function applyEase() {
 export function buzz(ms) { if (M.buzz && navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) { try { navigator.vibrate(ms); } catch {} } }
 
 // how fast this screen refreshes, measured (browsers don't say): median time between frames
-let hz = 0;
-export const refreshHz = () => hz;
+// phones drop to 60 Hz while nothing moves, so the frames of real animations count most
+let hz = 0; const live = [];
+const snapHz = raw => [30, 60, 75, 90, 100, 120, 144, 165, 240].reduce((b, x) => Math.abs(x - raw) < Math.abs(b - raw) ? x : b, 60);
+function sample(ms) { if (ms > 2 && ms < 40) { live.push(ms); if (live.length > 90) live.shift(); } }
+export const refreshHz = () => {
+  if (live.length >= 20) { const d = live.slice().sort((a, b) => a - b), m = snapHz(1000 / d[Math.floor(d.length * .3)]); if (m > hz) hz = m; }
+  return hz;
+};
 export function measureHz(done) {
   const d = []; let last = 0, n = 0;
   const f = now => { if (last) d.push(now - last); last = now; if (++n < 50) requestAnimationFrame(f); else {
     d.sort((a, b) => a - b); const med = d[Math.floor(d.length / 2)] || 16.7, raw = 1000 / med;
-    hz = [30, 60, 75, 90, 100, 120, 144, 165, 240].reduce((b, x) => Math.abs(x - raw) < Math.abs(b - raw) ? x : b, 60);
+    hz = Math.max(hz, snapHz(raw));
     if (done) done(hz);
   } };
   requestAnimationFrame(f);

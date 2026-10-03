@@ -6,6 +6,7 @@ import { Spring, clock, params, reduced, buzz, ease } from "./motion.js";
 import { focusAdd } from "./pages/entries.js";
 import { openScanPicker } from "./scan.js";
 import { openChat, startRec } from "./chat.js";
+import { zoom } from "./dock.js";
 
 let q = { type: "expense", val: "", cat: "", date: "", note: "" };
 const P = new Spring(0);
@@ -49,7 +50,7 @@ function paint() {
   const sh = $("qaSheet"), p = P.x, sr = sh.getBoundingClientRect(), t = Math.max(-.2, p);
   const lerp = (a, b) => a + (b - a) * t;
   if (from) {
-    const top = from.top - sr.top, left = from.left - sr.left, right = sr.right - from.right, bottom = sr.bottom - from.bottom;
+    const z = zoom(), top = (from.top - sr.top) / z, left = (from.left - sr.left) / z, right = (sr.right - from.right) / z, bottom = (sr.bottom - from.bottom) / z;
     sh.style.clipPath = p >= .999 ? "none" : `inset(${Math.max(0, lerp(top, 0)).toFixed(1)}px ${Math.max(0, lerp(right, 0)).toFixed(1)}px ${Math.max(0, lerp(bottom, 0)).toFixed(1)}px ${Math.max(0, lerp(left, 0)).toFixed(1)}px round ${lerp(22, 28).toFixed(1)}px)`;
   }
   $("qaScrim").style.opacity = Math.max(0, Math.min(1, p)).toFixed(3);
