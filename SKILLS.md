@@ -31,7 +31,7 @@ Skills loaded for this project session.
 | New screen or a visual change | `impeccable` (`shape`, then `craft`) with `taste-skill` rules | Keep the theme tokens in `css/app.css` (Lagoon, Atoll, Sandbank, Monsoon, Sunset, dark, AMOLED). Settings belong in Settings › Appearance. |
 | Before pushing a visible change | `impeccable audit` / `critique`, then `polish` | Check phone portrait and landscape, laptop, every text size (Small zooms the page), light and dark. |
 | Animation work | `impeccable animate` | Transform/opacity only; springs from `js/motion.js` (time-based, 60–120 Hz); respect reduced motion. Dock stays 4 or 6 tabs. |
-| Words on screen, docs, HANDOFF | `humanizer` | Plain English, short, no jargon. Faris reads on a phone. |
+| Words on screen and docs | `humanizer` | Plain English, short, no jargon. Faris reads on a phone. |
 | Security review | `static-analysis` (Semgrep) | Focus: `firestore.rules`, `functions/index.js` (callable checks), anything that builds HTML (`esc()` every value), and that no real data is committed. |
 | Releasing | the `pocket-ledger-release` steps below | |
 
@@ -42,6 +42,6 @@ Pocket Ledger is a vanilla-JS PWA (no React, no build step). Skills that assume 
 ## Releasing (pocket-ledger-release)
 1. Bump `VERSION` in `sw.js` (`pl-vNN`) and `?v=NN` on `app.js` and `css/app.css` in `index.html`; add new JS files to `SHELL`.
 2. Run every test in `tests/` in order (`g1` … `g12`); add one for the new feature.
-3. Update `HANDOFF.md` (History line, Files table, anything that changed).
+3. Add a line to `PRD.md` › Release history; update `ARCHITECTURE.md` if modules, data or tests changed.
 4. Commit and push (GitHub Desktop). Server changes also need `firebase deploy` in Cloud Shell, done by Faris.
 5. Check https://smilin-assassin.github.io/pocket-ledger/sw.js shows the new `pl-vNN`.

@@ -1,6 +1,6 @@
 # Working on Pocket Ledger (for any AI agent)
 
-Read `HANDOFF.md` first, then `ARCHITECTURE-ESSENTIALS.md`. `PRD.md` says what the app is for; `ARCHITECTURE.md` has the detail.
+Read this file first, then `ARCHITECTURE-ESSENTIALS.md`. `PRD.md` says what the app is for, the product rules, what's next and the release history; `ARCHITECTURE.md` has the detail (modules, data model, server functions, deploy commands, statements, transfers).
 
 ## The project in one breath
 A household money tracker PWA for Faris and his wife Sul (Maldives, MVR). Plain ES modules, no build step, served by GitHub Pages from this repo's root. Firebase (Auth, Firestore with offline cache, Cloud Functions in `asia-south1`, FCM push). Gemini runs through the `gemini` Cloud Function.
@@ -24,7 +24,7 @@ A household money tracker PWA for Faris and his wife Sul (Maldives, MVR). Plain 
 - Plain English, short answers, no jargon. He decides product questions; ask when a choice is his.
 - He pushes with GitHub Desktop from `C:\Users\Ahmed Faris\Documents\GitHub\pocket-ledger`. Server parts (`functions/`, `firestore.rules`) need him to run `firebase deploy` in Google Cloud Shell.
 - Show screenshots (phone and laptop) before pushing visible changes.
-- Keep `HANDOFF.md` up to date at the end of each piece of work.
+- Keep the docs current at the end of each piece of work: a line in `PRD.md` › Release history, and `ARCHITECTURE.md` for anything structural.
 
 ## Testing
 ```

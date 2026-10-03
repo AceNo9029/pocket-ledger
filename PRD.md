@@ -4,6 +4,7 @@
 A household in the Maldives wants to know, at any moment, **how much is left to spend this month**, where the money went, and what's coming up, without the chore of typing everything in. Bank apps show transactions, not budgets; spreadsheets are too slow on a phone.
 
 ## Who it's for
+- Live at https://smilin-assassin.github.io/pocket-ledger/ (installable PWA). Currency MVR; Maldivian dates are DD/MM/YYYY.
 - **Faris** (admin, Samsung S24 Ultra, Windows laptop) and **Sul** (iPhone, installed from Safari). They share some costs, keep some money private, and pass money between each other often (school fees from parents arrive in Sul's account).
 - A few invited friends or family later. Invite-only.
 
@@ -22,8 +23,24 @@ A household in the Maldives wants to know, at any moment, **how much is left to 
 - **Look and feel:** themes, light/dark/AMOLED, text size, motion presets, a floating dock with 4 or 6 tabs, vibrations; all in Settings › Appearance.
 - **Alerts:** bills, budgets, loans, money sent to you (FCM push, per-person choices).
 
-## Rules (decided with Faris)
-See "Product rules" in `HANDOFF.md`. Highlights: dock is 4 or 6 tabs, never 5; repeating items are reminders only; loans stay out of "left to spend" unless ticked; category is a dropdown; dates are DD/MM/YYYY; never store more than the last 4 digits of an account.
+## Rules decided with Faris (keep these)
+
+- **Privacy:** everyone has a private space ("Me"). Groups (renameable, one person can be in several) hold shared things. Group entries are visible to all members but **only the person who added something can edit/delete it** (enforced by rules via `author`). Only the group owner renames it or opens invitations.
+- Someone can **ask to see** another member's own dashboard; the owner allows/declines; viewers are read-only; it can be revoked in Settings › Privacy.
+- **Invite-only:** new accounts need an invite link (`?invite=CODE`, optional `&join=GROUP`), one use, 7 days, made by an admin in Settings. Existing users from before were let in automatically. Faris is admin. Admin page (side menu on wide screens, Settings › Account on phones) shows people, last active, Gemini use per day/person, daily AI limit, remove/restore access, delete accounts that signed up without an invite. It never shows money.
+- Use "your" on the user's own dashboard; use the person's name only when viewing someone else's.
+- Save type has an "Other" option with a box below for the purpose. Income has "Counts for: this month / next month" (default this month).
+- Repeating items are reminders only (green → amber → red bar as the due day nears), never auto-added.
+- Loans are separate from "left to spend" unless ticked; repayments in increments with a progress bar.
+- Category is a dropdown (not a typed field) to avoid the keyboard autocorrect bar.
+- BML transfer scanning: account last-4 digits decide direction (Faris is "Quraan sir" in other people's contacts; his account ends 5369). Receipts/tax invoices are one expense for the Grand Total; shop bank details on a receipt are not a transfer; notes list every item.
+- Notifications (FCM) for bills, budgets, loans; chosen per person in Settings.
+- Backups: Recently deleted (30 days); Back up button shares one JSON file (pick Drive on Android, Files on iPhone); reminder after 14 days. Restore replaces only the personal space.
+- Sul is on iPhone: no share-target, no icon shortcuts, push only when installed to home screen (iOS 16.4+).
+- The dock is always 4 or 6 tabs, never 5; rounded, not squircle. All look-and-feel settings live in Settings › Appearance.
+- Deleting is instant with Undo, not "Are you sure?".
+- Never store more than the last 4 digits of an account; those digits only ever match account numbers, never amounts.
+- Statement imports never skip a payment just because the amount repeats (two taxi rides of 30 on one day are two entries).
 
 ## Not doing (for now)
 - Connecting directly to bank accounts (no open-banking APIs in the Maldives).
@@ -31,7 +48,16 @@ See "Product rules" in `HANDOFF.md`. Highlights: dock is 4 or 6 tabs, never 5; r
 - Investment tracking or financial advice.
 
 ## Next
-1. Notifications open the right page (bills, transfer card).
+1. Notifications open the right page (the server sends `APP_URL`; the app already supports `#bills`, `#loans`, … so the functions just need to add them).
 2. Month and year comparisons (last 3 months, the year so far).
 3. Offline check on real phones.
 4. Android app: a thin installable wrapper first; reading bank SMS only if it's worth Google's review.
+
+## Release history (newest first)
+
+- October 2026: docs reorganised; HANDOFF.md retired (its content is now in ARCHITECTURE.md, PRD.md and AGENTS.md).
+- October 2026 (pl-v27): tap a category on Home (Where the money went) to see its entries; Entries has a category picker and a total line for whatever is shown (`ui.cat`, `#ledgerTotal`, test g12).
+- October 2026 (pl-v26): MIB CSV statements, cross-checked duplicates, tighter account-number rules for Gemini.
+- October 2026 (pl-v25): highlights lined up at every text size (Small was off), dock no longer tucks away, refresh rate measured while moving.
+- October 2026 (pl-v24): the dock, Quick add, Undo instead of confirmations, motion settings in Appearance.
+- October 2026: front-end overhaul. Same Firestore data, rules and functions; the single generated page became separate modules and pages with a side menu / tab bar. Behaviour changes worth knowing: in your own space and in groups you always add things as yourself (as before), the Gemini key/model now has its own Save button, and the old "top buttons show icons/words" setting went away with the top toolbar.

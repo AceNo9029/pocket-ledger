@@ -18,8 +18,8 @@ A personal and household money tracker: monthly income, spending, what's left, s
 | `firestore.rules`, `functions/`, `firebase.json` | Server side (deploy from Cloud Shell) |
 | `tests/` | Browser tests with Firebase mocks |
 
-See HANDOFF.md for the full picture.
+More: `PRD.md` (what it's for, rules, what's next), `ARCHITECTURE.md` (how it's built), `AGENTS.md` (for AI agents).
 
 ## Updating
 
-Bump `VERSION` in `sw.js`, push with GitHub Desktop, then close and reopen the app on each phone.
+Bump `VERSION` in `sw.js` and the `?v=` numbers in `index.html` (see `AGENTS.md`), push with GitHub Desktop, then close and reopen the app on each phone.

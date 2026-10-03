@@ -20,7 +20,7 @@ Firebase project pocket-ledger-3a340 (asia-south1)
   Cloud Functions: gemini · access · admin · dailyAlerts · notifyTransfer · testPush
 ```
 
-**Data:** `households/{id}` is a *space* (a private "Me" space or a shared group) with subcollections `entries`, `goals`, `loans`, `recurring`, `settlements`, `trash` (+ `transfers` in groups). Every doc has `author`; only the author can change it. `users/{uid}` holds the person's spaces and push tokens. Full model in `HANDOFF.md`.
+**Data:** `households/{id}` is a *space* (a private "Me" space or a shared group) with subcollections `entries`, `goals`, `loans`, `recurring`, `settlements`, `trash` (+ `transfers` in groups). Every doc has `author`; only the author can change it. `users/{uid}` holds the person's spaces and push tokens. Full model in `ARCHITECTURE.md`.
 
 **Flow of a change:** UI → `db.*` in `store.js` writes to Firestore straight away (works offline) → the live listener updates `state` → `changed()` re-renders on the next frame.
 
