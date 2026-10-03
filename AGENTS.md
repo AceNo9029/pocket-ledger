@@ -1,0 +1,34 @@
+# Working on Pocket Ledger (for any AI agent)
+
+Read `HANDOFF.md` first, then `ARCHITECTURE-ESSENTIALS.md`. `PRD.md` says what the app is for; `ARCHITECTURE.md` has the detail.
+
+## The project in one breath
+A household money tracker PWA for Faris and his wife Sul (Maldives, MVR). Plain ES modules, no build step, served by GitHub Pages from this repo's root. Firebase (Auth, Firestore with offline cache, Cloud Functions in `asia-south1`, FCM push). Gemini runs through the `gemini` Cloud Function.
+
+## Rules that are easy to break
+- **The repo is public.** Never commit real bank statements, account numbers, names from statements, keys or tokens. Tests use made-up data only. Never ask for or paste the Gemini key.
+- **Every release:** bump `VERSION` in `sw.js` (`pl-vNN`) **and** `?v=NN` on `app.js` and `css/app.css` in `index.html`. Add new JS files to `SHELL` in `sw.js`. Skipping this gives phones a blank page (old and new files mixed).
+- **Run all tests before pushing** (`tests/g1.js` … in order; see Testing). Add a test for anything new.
+- **Dock: always 4 or 6 tabs, never 5.** Rounded, not squircle. The + stays in the middle.
+- **All look-and-feel settings live in Settings › Appearance** (theme, text size, motion, dock, vibrations).
+- **Text size zooms `body`.** Position things with `offsetLeft/Top/Width`, or divide screen distances by `zoom()` from `js/dock.js`. `getBoundingClientRect()` alone drifts at Small/Large text.
+- **Motion:** animate `transform`/`opacity` only; springs advance on real elapsed time (`Spring.run(dt)` in `js/motion.js`) so 60/90/120 Hz look the same; respect `prefers-reduced-motion`.
+- **Deleting is instant with Undo** (`removeWithUndo`), not "Are you sure?".
+- **Only the author edits a doc** (Firestore rules check `author`). Everyone has a private space; groups are shared.
+- **Statement duplicates are cross-checked**, never amount-only (see `importStatement` in `js/scan.js`). Real repeats (two taxi rides of 30 the same day) must stay.
+- **Account digits are last-4 only**, and only ever compared with account numbers, never amounts.
+- Bills/reminders are never auto-added. Loans stay out of "left to spend" unless ticked.
+- Maldivian dates are DD/MM/YYYY.
+
+## How Faris works
+- Plain English, short answers, no jargon. He decides product questions; ask when a choice is his.
+- He pushes with GitHub Desktop from `C:\Users\Ahmed Faris\Documents\GitHub\pocket-ledger`. Server parts (`functions/`, `firestore.rules`) need him to run `firebase deploy` in Google Cloud Shell.
+- Show screenshots (phone and laptop) before pushing visible changes.
+- Keep `HANDOFF.md` up to date at the end of each piece of work.
+
+## Testing
+```
+python3 -m http.server 8765        # in the repo root
+cd tests && NODE_PATH=$(npm root -g) node g1.js   # then g2 … g12, in order
+```
+Firebase is swapped for the mocks in `tests/mockfb/` (the Firestore mock models the security rules). Each test prints ok/FAIL and exits non-zero on failure.

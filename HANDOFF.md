@@ -2,6 +2,8 @@
 
 Read this first in a new conversation. It explains what the app is, how it's built, what's live, and what's next.
 
+Other docs: `AGENTS.md` / `CLAUDE.md` (rules for AI agents), `ARCHITECTURE-ESSENTIALS.md` (one page) and `ARCHITECTURE.md` (detail), `PRD.md` (what the app is for and what's next), `SKILLS.md` (which skill for which job, release steps).
+
 ## Who and what
 
 - Owner/admin: Faris (GitHub `Smilin-Assassin`), Maldives. His wife Sul uses it on an iPhone (installed via Safari > Add to Home Screen); Faris uses a Samsung S24 Ultra and a Windows laptop.
@@ -144,5 +146,7 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
 - Push: `notifyTransfer`, per-person setting `notify.transfers` (Settings › Notifications › Money sent to you). Needs `firebase deploy --only functions` plus the one-time `add-iam-policy-binding notifytransfer …` command above (new callable).
 
 ## Ideas not done yet
+
+- Month/year comparisons; offline check on real phones; Android wrapper (see `PRD.md` › Next).
 
 - Deep links from notifications to the right page (the server sends `APP_URL`; the app supports `#bills`, `#loans`, … if the functions add them).
