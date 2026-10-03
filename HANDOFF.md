@@ -37,7 +37,8 @@ No build step: GitHub Pages serves these files as they are. Plain ES modules, on
 | `js/actions.js` | Shared actions: loans, repayments, bills (create/pay/skip), settle up, budgets, budget alerts. |
 | `js/shell.js` | Hash router (`#home`, `#entries`, `#loans`, `#bills`, `#goals`, `#settings/<section>`, `#admin`), page header (month, spaces, whose money), banners, bills badge. |
 | `js/pages/*.js` | One file per page: `home`, `entries` (form + list, CSV), `loans`, `bills`, `goals`, `settings` (you, appearance, groups, privacy, invites, recently deleted), `admin`. |
-| `js/gemini.js`, `js/scan.js`, `js/chat.js` | Gemini calls (server function or key), receipt/screenshot scanning sheet, chat with voice + one-tap confirm. |
+| `js/gemini.js`, `js/scan.js`, `js/chat.js` | Gemini calls (server function or key), receipt/screenshot scanning and bank statement imports, chat with voice + one-tap confirm. |
+| `js/transfers.js` | Money sent between people in a shared group: send sheet, approval cards. |
 | `js/lock.js`, `js/notify.js`, `js/backup.js`, `js/util.js` | App lock, push notifications + callable helper, backup/restore/reminder, small helpers. |
 | `sw.js` | Service worker: network-first cache, share-target, push. **Bump `VERSION` (`pl-vNN`) on every release** and add any new file to `SHELL`. Latest: `pl-v23`. `index.html` loads `app.js?v=NN` and `css/app.css?v=NN`: bump those numbers too, so phones never mix a new page with old cached files (that caused a blank page after the first overhaul release). |
 | `manifest.webmanifest`, `icons/` | PWA manifest (share_target, shortcuts) and icons. |
@@ -56,7 +57,7 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
 
 ## Data model (Firestore)
 
-- `users/{uid}`: `personal` (id of their private space), `spaces[]` (group ids), `name`, `email`, `tokens[]` (FCM), `notify {bills, budgets, loans}`, `lastSeen`. Legacy: `household`.
+- `users/{uid}`: `personal` (id of their private space), `spaces[]` (group ids), `name`, `email`, `tokens[]` (FCM), `notify {bills, budgets, loans, transfers}`, `lastSeen`. Legacy: `household`.
 - `households/{id}` = a **space**. `type: "personal" | "group"`, `owner`, `members[]`, `viewers[]` (people allowed to view a personal space), group `name`, `names {uid: name}`, `colors {uid: hex}`, `joinUntil` (ms; invite link open until), `settings {currency, opening, openingBy {uid}, people [...] (personal only), budgets {all|uid: {category: limit}}}`, `ai {server}`, `gemini {key}` (legacy), `alertState`. Legacy fields kept on the converted old household: `personOf {uid: "p1"|"p2"}`, `legacy` (old settings).
   - Subcollections: `entries`, `goals`, `loans`, `recurring`, `settlements`, `trash`; groups also have `transfers`, personal spaces `transfersSeen`. Every doc has `author` (uid of who added it).
   - Entry: `type` (expense|income|save|withdraw), `amount`, `date` (YYYY-MM-DD), `category`, `note` (≤160), `person` (uid), `created`, optional `goalId`, `split {with, share}`, `countMonth` (YYYY-MM it counts for), `loanId`/`loanRole`, `recurringId`, `ref` (bank ref), `source`.
@@ -74,7 +75,7 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
 
 - **Privacy:** everyone has a private space ("Me"). Groups (renameable, one person can be in several) hold shared things. Group entries are visible to all members but **only the person who added something can edit/delete it** (enforced by rules via `author`). Only the group owner renames it or opens invitations.
 - Someone can **ask to see** another member's own dashboard; the owner allows/declines; viewers are read-only; it can be revoked in Settings › Privacy.
-- **Invite-only:** new accounts need an invite link (`?invite=CODE`, optional `&join=GROUP`), one use, 7 days, made by an admin in Settings. Existing users from before were let in automatically. Faris is admin. Admin dashboard (shield button) shows people, last active, Gemini use per day/person, daily AI limit, remove/restore access, delete accounts that signed up without an invite. It never shows money.
+- **Invite-only:** new accounts need an invite link (`?invite=CODE`, optional `&join=GROUP`), one use, 7 days, made by an admin in Settings. Existing users from before were let in automatically. Faris is admin. Admin page (side menu on wide screens, Settings › Account on phones) shows people, last active, Gemini use per day/person, daily AI limit, remove/restore access, delete accounts that signed up without an invite. It never shows money.
 - Use "your" on the user's own dashboard; use the person's name only when viewing someone else's.
 - Save type has an "Other" option with a box below for the purpose. Income has "Counts for: this month / next month" (default this month).
 - Repeating items are reminders only (green → amber → red bar as the due day nears), never auto-added.
@@ -98,7 +99,7 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
     python3 -m http.server 8765          # in the repo root
     cd tests && NODE_PATH=$(npm root -g) node g1.js   # then g2 … g7, in order
 
-`g1` seeds an old-style household and checks the migration; later tests chain on `pl_state*.json` in the temp folder. g1 migration · g2 second person, groups, view requests, view-only · g3 joining from a group link · g4 a new person through every page (entries, budgets, loans, bills, goals, settings, new group, wide/phone layout) · g5 invites · g6 admin · g7 trash, backup, CSV, backup reminder, chat confirm + Edit first, shortcuts.
+`g1` seeds an old-style household and checks the migration; later tests chain on `pl_state*.json` in the temp folder. g1 migration · g2 second person, groups, view requests, view-only · g3 joining from a group link · g4 a new person through every page (entries, budgets, loans, bills, goals, settings, new group, wide/phone layout) · g5 invites · g6 admin · g7 trash, backup, CSV, backup reminder, chat confirm + Edit first, shortcuts · g8 bank statement import + Undo + bank accounts list (made-up data) · g9 money sent between people.
 
 ## History
 
@@ -121,7 +122,7 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
 - The receiver's app finds transfers `to == me` in their groups and shows a card on every page: edit note, category (or "don't count it"), date, then Accept (income `xfer-{group}-{id}` in their own space) or Decline. Answers are kept in `transfersSeen/{group}_{id}` in their own space, so cards don't come back. Nothing is added to the group's own entries.
 - Everyone in that group can read its transfers (amount and remark).
 - Statement imports skip the bank's copy of an accepted transfer (same amount within 2 days).
-- Push: `notifyTransfer`, per-person setting `notify.transfers` (Settings › Notifications › Money sent to you).
+- Push: `notifyTransfer`, per-person setting `notify.transfers` (Settings › Notifications › Money sent to you). Needs `firebase deploy --only functions` plus the one-time `add-iam-policy-binding notifytransfer …` command above (new callable).
 
 ## Ideas not done yet
 
