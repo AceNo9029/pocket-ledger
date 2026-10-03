@@ -1,5 +1,5 @@
 // Things you can do to your money, shared by the forms, scanning and the chat.
-import { db, state, ui, meId, pname, groupName, loanOutstanding, openLoans, budgetsFor, spentIn, owesPairs, LOAN_OUT, LOAN_IN, LOAN_BACK_IN, LOAN_BACK_OUT, recEntryId } from "./store.js";
+import { db, state, ui, meId, pname, rawDoc, groupName, loanOutstanding, openLoans, budgetsFor, spentIn, owesPairs, LOAN_OUT, LOAN_IN, LOAN_BACK_IN, LOAN_BACK_OUT, recEntryId } from "./store.js";
 import { r2, todayISO, isoOk, monthKey, money, toast } from "./util.js";
 
 // the person new things belong to: always you, except when adding "for" someone isn't possible anyway
@@ -81,4 +81,11 @@ export function budgetCheck(e) {
 
 export function addEntries(list, extra) {
   list.forEach((e, i) => { const x = Object.assign({ created: Date.now() + i }, e, extra || {}); db.add(x); budgetCheck(x); });
+}
+
+// delete straight away, with an Undo button instead of "Are you sure?"
+export function removeWithUndo(col, id, label, after) {
+  const copy = rawDoc(col, id); if (!copy) return;
+  db.removeDoc(col, id);
+  toast(label || "Deleted", { action: "Undo", onAction: () => { db.restoreDoc(col, id, copy); if (after) after(); } });
 }

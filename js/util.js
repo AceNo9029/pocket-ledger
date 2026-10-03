@@ -47,10 +47,20 @@ export const lsJson = (k, dflt) => { try { const v = JSON.parse(lsGet(k) || "nul
 
 // ---------- feedback ----------
 let toastT = null;
-export function toast(msg) {
+// a short message; with opts.action (e.g. "Undo") it carries a button and stays a little longer
+export function toast(msg, opts) {
   const t = $("toast"); if (!t) return;
-  t.textContent = msg; t.hidden = false;
-  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2600);
+  opts = opts || {};
+  t.innerHTML = "";
+  const span = document.createElement("span"); span.textContent = msg; t.appendChild(span);
+  if (opts.action) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "toast-act"; b.textContent = opts.action;
+    b.addEventListener("click", () => { clearTimeout(toastT); t.classList.remove("show"); t.hidden = true; try { opts.onAction && opts.onAction(); } catch (e) { console.error(e); } }, { once: true });
+    t.appendChild(b);
+  }
+  t.classList.toggle("has-act", !!opts.action);
+  t.hidden = false; requestAnimationFrame(() => t.classList.add("show"));
+  clearTimeout(toastT); toastT = setTimeout(() => { t.classList.remove("show"); setTimeout(() => { if (!t.classList.contains("show")) t.hidden = true; }, 300); }, opts.ms || (opts.action ? 5000 : 2600));
 }
 export function saveFile(name, content, okLabel) {
   try {

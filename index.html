@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="css/app.css?v=23">
+<link rel="stylesheet" href="css/app.css?v=24">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -317,6 +317,15 @@
         <div class="field"><span class="flabel">Text size</span>
           <div class="modeseg four" id="fsSeg" role="group" aria-label="Text size"><button type="button" data-fs="s">Small</button><button type="button" data-fs="m">Normal</button><button type="button" data-fs="l">Large</button><button type="button" data-fs="xl">Extra large</button></div></div>
         <label class="check"><input type="checkbox" id="setAmoled"><span>Pure black in dark mode<small>Deeper blacks that save battery on AMOLED screens like the S24 Ultra.</small></span></label>
+        <div class="field"><span class="flabel">Motion</span>
+          <div class="modeseg" id="motionSeg" role="group" aria-label="Motion"><button type="button" data-motion="calm">Calm</button><button type="button" data-motion="lively">Lively</button><button type="button" data-motion="jelly">Jelly</button></div>
+          <small class="hint" id="motionHint"></small></div>
+        <div class="field dock-set"><span class="flabel">Dock on phones</span>
+          <div class="modeseg two" id="dockSizeSeg" role="group" aria-label="Number of tabs"><button type="button" data-tabs="4">4 tabs</button><button type="button" data-tabs="6">6 tabs</button></div>
+          <div class="dock-picks" id="dockPicks" role="group" aria-label="Pages in your dock"></div>
+          <small class="hint" id="dockFit"></small></div>
+        <label class="check"><input type="checkbox" id="setBuzz"><span>Little vibrations<small>A light tap when you switch pages, type amounts or hold the +. Android phones only.</small></span></label>
+        <p class="hint hz-note" id="hzNote"></p>
       </section>
 
       <section class="panel setsec" id="set-lock">
@@ -418,7 +427,21 @@
       <div class="panel-head"><p class="hint">People, Gemini use and access. Never shows anyone's money.</p><button class="ghost" id="adminRefresh" type="button">Refresh</button></div>
       <div id="adminBody" class="ad-body"></div>
     </section>
+    <section class="page" id="pg-more" data-page="more" hidden>
+      <div class="panel more-list" id="moreList"></div>
+      <p class="hint">Choose which pages sit in your dock in <a href="#settings/look">Settings › Appearance</a>.</p>
+    </section>
   </main>
+
+  <div class="dk-wrap" id="dockWrap">
+    <nav class="dk" id="dock" aria-label="Pages"></nav>
+    <button class="dk-plus" id="dkPlus" type="button" aria-label="Add an entry (hold for scan or voice)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+  </div>
+  <div class="dk-sat" id="dkSat" aria-hidden="true">
+    <button type="button" data-sat="scan" aria-label="Scan a receipt"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h1.5l1.5-2h6l1.5 2H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg><span>Scan</span></button>
+    <button type="button" data-sat="add" aria-label="Type it in"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h3M13 12h3M8 16h3M13 16h3"/></svg><span>Type it</span></button>
+    <button type="button" data-sat="voice" aria-label="Say it"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Voice</span></button>
+  </div>
 </div>
 
 <button class="fab" id="chatFab" type="button" aria-label="Ask about your money" hidden><svg class="ico lg"><use href="#i-chat"/></svg></button>
@@ -460,6 +483,21 @@
 <input type="file" id="stmtFile" accept=".pdf,.csv,application/pdf,text/csv,text/comma-separated-values" hidden>
 
 <div class="toast" id="toast" role="status" hidden></div>
+
+<div class="qa-wrap" id="qaWrap" hidden>
+  <div class="qa-scrim" id="qaScrim"></div>
+  <section class="qa-sheet" id="qaSheet" role="dialog" aria-modal="true" aria-label="Quick add">
+    <div class="qa-grip" aria-hidden="true"></div>
+    <div class="qa-top qa-f"><div class="qa-seg" id="qaType" data-v="expense"><i aria-hidden="true"></i><button type="button" data-v="expense" aria-pressed="true">Spent</button><button type="button" data-v="income" aria-pressed="false">Income</button></div>
+      <button class="qa-x" type="button" id="qaX" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="qa-amt num qa-f" id="qaAmt" aria-live="polite"><small id="qaCur">MVR</small><span id="qaVal">0</span><span class="qa-caret" aria-hidden="true"></span></div>
+    <div class="qa-chips qa-f" id="qaChips" role="group" aria-label="Category"></div>
+    <div class="qa-row qa-f"><button type="button" class="qa-pill" id="qaDate"></button><input type="date" id="qaDateIn" class="qa-datein" hidden aria-label="Date"><button type="button" class="qa-pill" id="qaNoteBtn">+ Add a note</button>
+      <div class="qa-note" id="qaNoteRow" hidden><input id="qaNote" maxlength="160" placeholder="Note, e.g. Lunch at Seagull" aria-label="Note"></div></div>
+    <div class="qa-pad qa-f" id="qaPad"></div>
+    <div class="qa-acts qa-f"><button type="button" class="qa-more" id="qaMore">More options</button><button type="button" class="qa-save" id="qaSave" disabled>Add expense</button></div>
+  </section>
+</div>
 
 <div class="quick" id="quick" hidden>
   <div class="quick-card">
@@ -534,6 +572,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="app.js?v=23"></script>
+<script type="module" src="app.js?v=24"></script>
 </body>
 </html>

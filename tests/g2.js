@@ -31,7 +31,7 @@ const users = { "faris@x.com": "secret12", "sul@x.com": "secret12", "ali@x.com":
   // Faris sees and allows the request
   await T.login("faris@x.com");
   check(/Sul.*would like to see/.test(await T.text("#reqBar")), "Faris sees the request banner", await T.text("#reqBar"));
-  check(await T.visible("#settingsBadge"), "settings shows a dot for the request");
+  check(!(await p.$eval("#settingsBadge", b => b.hidden)) && await T.visible("#dock [data-badge=more]"), "settings (under More on the dock) shows a dot for the request");
   await p.click("#reqBar button[data-reqok]"); await p.waitForTimeout(500);
   d = await T.db(); const fp = d["users/uid_farisxcom"].personal;
   check((d["households/" + fp].viewers || []).includes("uid_sulxcom"), "Sul is now a viewer of Faris's space");

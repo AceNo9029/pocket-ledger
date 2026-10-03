@@ -16,6 +16,8 @@ import { refreshPush } from "./notify.js";
 import { initNag, renderNag } from "./backup.js";
 import { aiReady } from "./gemini.js";
 import { initTransfers, checkTransfers } from "./transfers.js";
+import { initDock, dockBadges, buildDock } from "./dock.js";
+import { initQuick, openQuick } from "./quick.js";
 
 // a screenshot shared into the app from another app (Android share sheet)
 async function takeSharedFiles() {
@@ -41,17 +43,18 @@ function handleShortcut() {
   if (act === "scan") show("Scan a receipt", "Take a photo or pick a screenshot.", "Open camera or gallery", openScanPicker);
   else if (act === "voice") show("Talk to Pocket Ledger", "Say what happened, like \"Spent 85 on coffee\".", "Start talking", () => { openChat(); startRec(); });
   else if (act === "chat") openChat();
-  else if (act === "add") focusAdd("expense");
+  else if (act === "add") { if (matchMedia("(max-width: 899.98px)").matches) openQuick(); else focusAdd("expense"); }
 }
 
 export function boot(fb) {
-  [["home", home], ["entries", entries], ["loans", loans], ["bills", bills], ["goals", goals], ["settings", settings], ["admin", admin]].forEach(([id, p]) => { registerPage(id, p); p.init(); });
-  initShell(); initScan(); initStatements(); initTransfers(); initChat(); initLock(); initNag();
+  [["home", home], ["entries", entries], ["loans", loans], ["bills", bills], ["goals", goals], ["settings", settings], ["admin", admin], ["more", { init() {}, render() { dockBadges(); } }]].forEach(([id, p]) => { registerPage(id, p); p.init(); });
+  initShell(); initDock(); initQuick(); initScan(); initStatements(); initTransfers(); initChat(); initLock(); initNag();
   $("quickX").addEventListener("click", () => { $("quick").hidden = true; });
   document.addEventListener("click", ev => { const b = ev.target.closest("[data-go-add]"); if (b) focusAdd("expense"); });
   connect(fb);
   $("app").hidden = false;
-  onChange(() => { renderShell(); renderNag(); });
+  let wasAdmin = null;
+  onChange(() => { renderShell(); renderNag(); if (wasAdmin !== !!ctx.admin) { wasAdmin = !!ctx.admin; buildDock(); } dockBadges(); });
   route();
   try { const m = sessionStorage.getItem("pl-join-msg"); if (m) { sessionStorage.removeItem("pl-join-msg"); setTimeout(() => toast(m), 800); } } catch {}
   (function waitReady() {

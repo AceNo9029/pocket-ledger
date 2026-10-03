@@ -123,6 +123,7 @@ export function connect(fb) {
     F.getDoc(F.doc(db, "households", pid)).then(s => { if (s.exists()) { state.my = ((s.data().settings || {}).people || [])[0] || null; rebuild(); changed(); } }).catch(() => {});
   }
 }
+export const rawDoc = (c, id) => { const x = (raw[c] || []).find(o => o.id === id); return x ? JSON.parse(JSON.stringify(x)) : null; };
 export const hRef = id => ctx.F.doc(ctx.db, "households", id || ctx.hid);
 export const uRef = () => ctx.F.doc(ctx.db, "users", meId());
 
@@ -169,6 +170,13 @@ export const db = {
       ids.slice(i, i + 400).forEach(id => b.delete(F.doc(col("entries"), id)));
       await b.commit();
     }
+  },
+  // put back something just deleted (the Undo button) and drop its Recently deleted copy
+  restoreDoc(c, id, data) {
+    const b = ctx.F.writeBatch(ctx.db);
+    b.set(ctx.F.doc(col(c), id), clean(Object.assign({}, data, { author: data.author || meId() })));
+    b.delete(ctx.F.doc(col("trash"), c + "__" + id));
+    return fire(b.commit());
   },
   saveGoal(id, g) { return db.saveDoc("goals", id, g); },
   saveSettings(partial) {

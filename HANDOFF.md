@@ -38,9 +38,10 @@ No build step: GitHub Pages serves these files as they are. Plain ES modules, on
 | `js/shell.js` | Hash router (`#home`, `#entries`, `#loans`, `#bills`, `#goals`, `#settings/<section>`, `#admin`), page header (month, spaces, whose money), banners, bills badge. |
 | `js/pages/*.js` | One file per page: `home`, `entries` (form + list, CSV), `loans`, `bills`, `goals`, `settings` (you, appearance, groups, privacy, invites, recently deleted), `admin`. |
 | `js/gemini.js`, `js/scan.js`, `js/chat.js` | Gemini calls (server function or key), receipt/screenshot scanning and bank statement imports, chat with voice + one-tap confirm. |
+| `js/motion.js`, `js/dock.js`, `js/quick.js` | Motion springs (time-based, follow the screen's refresh rate), the phone dock + side-menu highlight + More page, and Quick add from the + (see Navigation). |
 | `js/transfers.js` | Money sent between people in a shared group: send sheet, approval cards. |
 | `js/lock.js`, `js/notify.js`, `js/backup.js`, `js/util.js` | App lock, push notifications + callable helper, backup/restore/reminder, small helpers. |
-| `sw.js` | Service worker: network-first cache, share-target, push. **Bump `VERSION` (`pl-vNN`) on every release** and add any new file to `SHELL`. Latest: `pl-v23`. `index.html` loads `app.js?v=NN` and `css/app.css?v=NN`: bump those numbers too, so phones never mix a new page with old cached files (that caused a blank page after the first overhaul release). |
+| `sw.js` | Service worker: network-first cache, share-target, push. **Bump `VERSION` (`pl-vNN`) on every release** and add any new file to `SHELL`. Latest: `pl-v24`. `index.html` loads `app.js?v=NN` and `css/app.css?v=NN`: bump those numbers too, so phones never mix a new page with old cached files (that caused a blank page after the first overhaul release). |
 | `manifest.webmanifest`, `icons/` | PWA manifest (share_target, shortcuts) and icons. |
 | `firestore.rules` | Security rules (see below). |
 | `functions/` | Cloud Functions: `index.js`, `alerts.js`, `package.json` (Node 22, firebase-admin 13, firebase-functions 6). |
@@ -51,9 +52,15 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
 
 ## Navigation
 
-- Wide screens (900px+): vertical side menu. Phones: bottom tab bar (Home, Entries, Loans, Bills, Goals, Settings). Admin is in the side menu, and on phones under Settings › Account.
+- **Phones (under 900px): a floating dock** (`js/dock.js`). The + sits in the middle; tabs are **always 4 or 6, never 5** (Faris's rule, for symmetry). 4 = three chosen pages + More (default Home, Entries | Bills, More); 6 = every page, no More. 6 is only offered when each tab still gets 46px (about 374px wide or more). Rounded corners only (squircle was tried and dropped).
+- The dock's highlight is a liquid spring: tap, or hold and slide across to scrub. It tucks away slightly while scrolling down. Bills count / Settings dot show on the dock, or on More when that page is hidden there. More (`#more`) lists the pages not in the dock, plus Admin for admins.
+- **The +:** tap = Quick add (`js/quick.js`): number pad, Spent/Income, most-used categories first, Today (tap to change the date), optional note, "More options" opens the full Entries form filled in. Adds as you, with Undo. Hold the + = Scan / Type it / Voice.
+- **Wide screens (900px+):** side menu, with the same liquid highlight moving vertically. No dock.
+- **Deleting** entries, reminders and goals is instant with an **Undo** button in the toast (no "Are you sure?"); Undo also removes the Recently deleted copy, and for goals puts the savings back on the goal. `toast(msg, {action, onAction})` in util.js.
+- **Settings › Appearance holds all look-and-feel** (keep it that way): mode, theme, text size, AMOLED, motion preset (Calm / Lively default / Jelly), dock tabs (4/6 + which pages), little vibrations (default on), measured refresh rate. Motion settings are per device in localStorage `pl-motion`.
+- **Smoothness rules:** animate transform/opacity only; springs run on real elapsed time in small fixed slices (`Spring.run(dt)`), so 60/90/120/144 Hz all look the same and use every frame; CSS transitions use the same spring as a `linear()` easing (`--spring-ease`, `--grow-dur`); scroll listeners are passive; `prefers-reduced-motion` keeps things short. Vibrations only fire after the user has touched the page.
 - Header on each page: page title, month switcher (Home, Entries), space chips (Me / groups / dashboards shared with you), and in groups the "You / Sul / All of <group>" switch.
-- The chat button floats on every page. Scan opens a sheet from Home, Entries, the share sheet or the icon shortcut.
+- The chat button floats on every page (above the dock on phones). Scan opens a sheet from Home, Entries, the + (hold), the share sheet or the icon shortcut.
 
 ## Data model (Firestore)
 
@@ -97,13 +104,14 @@ The old patch-on-patch build (`source/base`, `source/build`) was retired in the 
 `tests/` has Playwright scenarios (`g1`–`g7`) and Firebase mocks (`tests/mockfb/`) served instead of the real gstatic SDK. The Firestore mock includes a small model of the security rules so tests catch writes the server would refuse. Each test prints ok/FAIL lines and exits non-zero on a failure.
 
     python3 -m http.server 8765          # in the repo root
-    cd tests && NODE_PATH=$(npm root -g) node g1.js   # then g2 … g7, in order
+    cd tests && NODE_PATH=$(npm root -g) node g1.js   # then g2 … g10, in order
 
-`g1` seeds an old-style household and checks the migration; later tests chain on `pl_state*.json` in the temp folder. g1 migration · g2 second person, groups, view requests, view-only · g3 joining from a group link · g4 a new person through every page (entries, budgets, loans, bills, goals, settings, new group, wide/phone layout) · g5 invites · g6 admin · g7 trash, backup, CSV, backup reminder, chat confirm + Edit first, shortcuts · g8 bank statement import + Undo + bank accounts list (made-up data) · g9 money sent between people.
+`g1` seeds an old-style household and checks the migration; later tests chain on `pl_state*.json` in the temp folder. g1 migration · g2 second person, groups, view requests, view-only · g3 joining from a group link · g4 a new person through every page (entries, budgets, loans, bills, goals, settings, new group, wide/phone layout) · g5 invites · g6 admin · g7 trash, backup, CSV, backup reminder, chat confirm + Edit first, shortcuts · g8 bank statement import + Undo + bank accounts list (made-up data) · g9 money sent between people · g10 dock (4/6 tabs, scrub, More), Quick add + Undo, hold-the-+ shortcuts, goal Undo, Settings › Appearance, laptop side highlight.
 
 ## History
 
 - October 2026: front-end overhaul. Same Firestore data, rules and functions; the single generated page became separate modules and pages with a side menu / tab bar. Behaviour changes worth knowing: in your own space and in groups you always add things as yourself (as before), the Gemini key/model now has its own Save button, and the old "top buttons show icons/words" setting went away with the top toolbar.
+- October 2026 (pl-v24): the dock, Quick add, Undo instead of confirmations, motion settings in Appearance.
 
 ## Bank statements (added Oct 2026)
 

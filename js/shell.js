@@ -5,7 +5,9 @@ import { ctx, state, ui, people, pcolor, isGroup, isViewer, groupName, setView, 
 
 const pages = {};
 let current = "";
-const TITLES = { home: "Home", entries: "Entries", loans: "Loans", bills: "Bills & reminders", goals: "Savings goals", settings: "Settings", admin: "Admin" };
+const TITLES = { home: "Home", entries: "Entries", loans: "Loans", bills: "Bills & reminders", goals: "Savings goals", settings: "Settings", admin: "Admin", more: "More" };
+const routeHooks = [];
+export const onRoute = fn => routeHooks.push(fn);
 const MONTH_PAGES = new Set(["home", "entries"]);
 
 export function registerPage(id, mod) { pages[id] = mod; }
@@ -34,6 +36,7 @@ export function route() {
   if (mod) { if (first && mod.enter) mod.enter(anchor); try { mod.render(); } catch (e) { console.error(e); } }
   if (anchor) setTimeout(() => { const el = $("set-" + anchor) || $(anchor); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
   else if (first) window.scrollTo(0, 0);
+  routeHooks.forEach(fn => { try { fn(id, first); } catch (e) { console.error(e); } });
 }
 window.addEventListener("hashchange", route);
 

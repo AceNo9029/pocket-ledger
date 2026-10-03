@@ -2,7 +2,7 @@
 import { $, esc, money, num, sum, todayISO, monthKey, monthName, shiftMonth, toast, saveFile, fillSelect, canHover } from "../util.js";
 import { state, ui, db, meId, isAll, isGroup, people, pname, pcolor, canEdit, addedBy, otherOf, inMonth, countsMoney,
   visibleGoals, goalBalance, goalName, totalSavings, catOptions, guessCategory, changed } from "../store.js";
-import { createRecurring, budgetCheck } from "../actions.js";
+import { createRecurring, budgetCheck, removeWithUndo } from "../actions.js";
 import { go } from "../shell.js";
 
 Object.assign(ui, { type: "expense", editId: null, filter: "all", search: "", confirm: null, openRow: null, catOther: false, goalSel: "" });
@@ -21,9 +21,7 @@ export function rowHtml(e, opts) {
   const by = isGroup() && !isAll() ? addedBy(e) : "";
   const sub = [isAll() ? pname(e.person) : "", e.note || (e.type === "expense" ? "Spent" : e.type === "income" ? "Income" : "")].filter(Boolean).join(" · ");
   const editable = !opts.noActions && canEdit(e);
-  const acts = !editable ? "" : ui.confirm === e.id
-    ? `<button type="button" class="icon-btn danger" data-del="${e.id}">Delete</button><button type="button" class="icon-btn" data-nodel="1">Keep</button>`
-    : `<button type="button" class="icon-btn" data-edit="${e.id}" aria-label="Edit entry">Edit</button><button type="button" class="icon-btn" data-ask="${e.id}" aria-label="Delete entry">Delete</button>`;
+  const acts = !editable ? "" : `<button type="button" class="icon-btn" data-edit="${e.id}" aria-label="Edit entry">Edit</button><button type="button" class="icon-btn danger" data-del="${e.id}" aria-label="Delete entry">Delete</button>`;
   return `<li class="tx${ui.openRow === e.id ? " open" : ""}" data-id="${e.id}"><span class="dot" style="background:${meta[0]}"></span>
     <div class="what"><b>${esc(title || "Untitled")}${tags}</b><small>${isAll() ? `<i class="pdot" style="background:${pcolor(e.person)}"></i>` : ""}${esc(sub)}${by ? ` <span class="by-tag">added by ${esc(by)}</span>` : ""}${opts.showDate ? " · " + esc(new Date(e.date + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" })) : ""}</small></div>
     <span class="amt num ${meta[1]}">${meta[2]}${esc(money(+e.amount))}</span><span class="acts">${acts}</span></li>`;
@@ -38,9 +36,7 @@ export function wireRows(list, rerender) {
       const li = ev.target.closest("li.tx"); if (!li || canHover()) return;
       ui.openRow = ui.openRow === li.dataset.id ? null : li.dataset.id; ui.confirm = null; rerender(); return;
     }
-    if (b.dataset.ask) { ui.confirm = b.dataset.ask; rerender(); }
-    else if (b.dataset.nodel) { ui.confirm = null; rerender(); }
-    else if (b.dataset.del) { ui.confirm = null; db.remove(b.dataset.del); toast("Deleted. You can restore it from Settings › Recently deleted."); }
+    if (b.dataset.del) { ui.openRow = null; removeWithUndo("entries", b.dataset.del, "Entry deleted"); }
     else if (b.dataset.edit) startEdit(b.dataset.edit);
   });
   let sw = null;
@@ -151,11 +147,17 @@ export function startEdit(id) {
   renderForm();
   setTimeout(() => { $("formPanel").scrollIntoView({ behavior: "smooth", block: "start" }); $("fAmount").focus({ preventScroll: true }); }, 60);
 }
-export function focusAdd(type, goalId) {
+export function focusAdd(type, goalId, pre) {
   go("entries");
   if (ui.editId) resetForm();
   if (type) setType(type);
   if (goalId) { ui.goalSel = goalId; renderForm(); }
+  if (pre) {
+    if (pre.amount) $("fAmount").value = pre.amount;
+    if (pre.date) $("fDate").value = pre.date;
+    if (pre.note) $("fNote").value = pre.note;
+    if (pre.category) { $("fCat").value = pre.category; syncCatSel(); }
+  }
   setTimeout(() => { $("formPanel").scrollIntoView({ behavior: "smooth", block: "start" }); $("fAmount").focus({ preventScroll: true }); }, 120);
 }
 

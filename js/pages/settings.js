@@ -6,6 +6,8 @@ import * as notify from "../notify.js";
 import * as gem from "../gemini.js";
 import * as backup from "../backup.js";
 import { exportCsv } from "./entries.js";
+import { M, PAGES, PRESETS, saveMotion, refreshHz, measureHz, reduced } from "../motion.js";
+import { NAMES, fitsSix, motionChanged } from "../dock.js";
 
 const last4 = v => String(v || "").split(/[,\s]+/).map(x => x.replace(/\D/g, "").slice(-4)).filter(x => x.length === 4).join(", ");
 const inviteUrl = id => location.origin + location.pathname + "?join=" + id;
@@ -81,7 +83,23 @@ function syncAppearance() {
   document.querySelectorAll("#set-look .theme-sw").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.preset === preset)));
   document.querySelectorAll("#fsSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.fs === fs)));
   $("setAmoled").checked = lsGet("pl-amoled") === "1";
+  // motion, dock and vibrations
+  document.querySelectorAll("#motionSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.motion === M.preset)));
+  $("motionHint").textContent = reduced() ? "Your phone is set to reduce motion, so animations are kept short." : ({ calm: "Smooth and quick, hardly any bounce.", lively: "A little stretch and bounce.", jelly: "Stretchy and wobbly. The fun one." })[M.preset];
+  const six = fitsSix(), tabs = six ? M.tabs : 4;
+  document.querySelectorAll("#dockSizeSeg button").forEach(b => { b.setAttribute("aria-pressed", String(+b.dataset.tabs === tabs)); b.disabled = b.dataset.tabs === "6" && !six; });
+  const picks = $("dockPicks"); picks.hidden = tabs === 6;
+  picks.innerHTML = PAGES.map(p => `<label class="dp"><input type="checkbox" data-dpick="${p}" ${dockDraft.includes(p) ? "checked" : ""} ${!dockDraft.includes(p) && dockDraft.length >= 3 ? "disabled" : ""}><span>${NAMES[p]}</span></label>`).join("");
+  $("dockFit").textContent = tabs === 6 ? "All six pages are in your dock, three on each side of the +."
+    : dockDraft.length < 3 ? "Pick " + (3 - dockDraft.length) + " more. The 4th tab is More, which holds the rest."
+    : "Three pages plus More, two on each side of the +." + (six ? "" : " Your screen is too narrow for 6 tabs, so it stays at 4. The dock only uses 4 or 6 so it stays balanced.");
+  const hz = refreshHz();
+  $("hzNote").textContent = hz ? "Your screen refreshes " + hz + " times a second (" + hz + " Hz). Animations follow it automatically." : "Animations follow your screen's refresh rate automatically (60, 90, 120 Hz or more).";
+  if (!hz) measureHz(() => { const n = $("hzNote"); if (n) n.textContent = "Your screen refreshes " + refreshHz() + " times a second (" + refreshHz() + " Hz). Animations follow it automatically."; });
+  $("setBuzz").checked = !!M.buzz;
 }
+let dockDraft = M.dock.slice();
+function motionSaved() { saveMotion(); motionChanged(); syncAppearance(); }
 
 // ---------- groups ----------
 async function renderGroups() {
@@ -224,6 +242,8 @@ async function onClick(ev) {
     if (b.id === "saveSettings") return saveMyDetails();
     if (d.mode) { lsSet("pl-mode", d.mode === "auto" ? "" : d.mode); window.plApplyTheme(); syncAppearance(); }
     else if (d.preset) { lsSet("pl-preset", d.preset === "lagoon" ? "" : d.preset); window.plApplyTheme(); syncAppearance(); }
+    else if (d.motion) { M.preset = PRESETS[d.motion] ? d.motion : "lively"; motionSaved(); }
+    else if (d.tabs) { M.tabs = d.tabs === "6" ? 6 : 4; motionSaved(); }
     else if (d.fs) { lsSet("pl-fs", d.fs === "m" ? "" : d.fs); window.plApplyTheme(); syncAppearance(); changed(); }
     else if (d.renameok) {
       const name = (document.querySelector(`[data-rename="${CSS.escape(d.renameok)}"]`).value || "").trim().slice(0, 30);
@@ -300,6 +320,13 @@ export const page = {
   init() {
     $("pg-settings").addEventListener("click", onClick);
     $("setAmoled").addEventListener("change", () => { lsSet("pl-amoled", $("setAmoled").checked ? "1" : ""); window.plApplyTheme(); });
+    $("setBuzz").addEventListener("change", () => { M.buzz = $("setBuzz").checked; saveMotion(); });
+    $("dockPicks").addEventListener("change", e => {
+      const i = e.target.closest("input[data-dpick]"); if (!i) return;
+      dockDraft = i.checked ? dockDraft.concat(i.dataset.dpick) : dockDraft.filter(p => p !== i.dataset.dpick);
+      dockDraft = PAGES.filter(p => dockDraft.includes(p));
+      if (dockDraft.length === 3) { M.dock = dockDraft.slice(); motionSaved(); } else syncAppearance();
+    });
     $("reqBar").addEventListener("click", answerRequest);
     $("signOutBtn").addEventListener("click", () => ctx.signOut());
     $("exportBtn2").addEventListener("click", exportCsv);

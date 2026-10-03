@@ -2,6 +2,7 @@
 import { $, esc, money, num, sum, monthKey, monthName, monthsBetween, toast } from "../util.js";
 import { state, ui, db, isGroup, isAll, people, pname, canEdit, visibleGoals, goalBalance, totalSavings, meId, groupName } from "../store.js";
 import { focusAdd } from "./entries.js";
+import { removeWithUndo } from "../actions.js";
 
 ui.goalEditId = null;
 const ownerForNew = () => isGroup() ? "shared" : meId();
@@ -34,13 +35,11 @@ export const page = {
         ui.goalEditId = g.id; $("gName").value = g.name; $("gTarget").value = g.target; $("gDate").value = g.by || "";
         $("saveGoal").textContent = "Save changes"; $("goalFormTitle").textContent = "Edit goal"; $("cancelGoal").hidden = false;
         $("goalForm").scrollIntoView({ behavior: "smooth", block: "start" }); $("gName").focus({ preventScroll: true });
-      } else if (d.gask) { ui.confirm = "g:" + d.gask; page.render(); }
-      else if (d.nodel) { ui.confirm = null; page.render(); }
-      else if (d.gdel) {
-        ui.confirm = null;
-        // keep the money: move this goal's entries to general savings
-        state.entries.filter(x => x.goalId === d.gdel && canEdit(x)).forEach(e => db.update(e.id, Object.assign({}, e, { goalId: "" })));
-        db.removeDoc("goals", d.gdel); toast("Goal deleted");
+      } else if (d.gdel) {
+        // keep the money: this goal's savings move to general savings (Undo puts them back)
+        const moved = state.entries.filter(x => x.goalId === d.gdel && canEdit(x)).map(e => Object.assign({}, e));
+        moved.forEach(e => db.update(e.id, Object.assign({}, e, { goalId: "" })));
+        removeWithUndo("goals", d.gdel, "Goal deleted. Its savings stay in your total.", () => moved.forEach(e => db.update(e.id, e)));
       }
     });
   },
@@ -56,15 +55,13 @@ export const page = {
         if (done) plan = "Goal reached";
         else if (g.by) { const m = monthsBetween(nowK, g.by); plan = m <= 0 ? "Target date passed" : money((tgt - bal) / m, { whole: true }) + "/month to make " + monthName(g.by, true); }
         else plan = money(Math.max(tgt - bal, 0), { whole: true }) + " to go";
-        const asking = ui.confirm === "g:" + g.id, mine = canEdit(g);
+        const mine = canEdit(g);
         return `<div class="goal${done ? " done" : ""}">
           <div class="goal-top"><h3>${esc(g.name)}<span class="owner-tag">${esc(g.owner === "shared" ? "Shared" : g.owner === meId() ? "Yours" : pname(g.owner))}</span></h3><span class="pct num">${pct}%</span></div>
           <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${esc(g.name)} progress"><div style="width:${pct}%"></div></div>
           <div class="goal-meta num"><span>${esc(money(bal, { whole: true }))} of ${esc(money(tgt, { whole: true }))}</span><span>${esc(plan)}</span></div>
           ${g.owner === "shared" && bal ? `<div class="split-by num">${people().map(x => esc(x.id === meId() ? "You" : x.name) + " " + esc(money(goalBalance(g.id, x.id), { whole: true }))).join(" · ")}</div>` : ""}
-          ${state.readOnly ? "" : `<div class="goal-acts">${asking
-            ? `<span class="hint">Delete this goal? Its saved entries stay in your total savings.</span><button type="button" class="ghost" data-gdel="${g.id}">Delete goal</button><button type="button" class="ghost" data-nodel="1">Keep</button>`
-            : `<button type="button" class="ghost" data-gadd="${g.id}">Add money</button>${mine ? `<button type="button" class="ghost" data-gedit="${g.id}">Edit</button><button type="button" class="icon-btn" data-gask="${g.id}" aria-label="Delete goal">✕</button>` : ""}`}</div>`}
+          ${state.readOnly ? "" : `<div class="goal-acts"><button type="button" class="ghost" data-gadd="${g.id}">Add money</button>${mine ? `<button type="button" class="ghost" data-gedit="${g.id}">Edit</button><button type="button" class="icon-btn danger" data-gdel="${g.id}" aria-label="Delete goal">Delete</button>` : ""}</div>`}
         </div>`;
       }).join("");
     }

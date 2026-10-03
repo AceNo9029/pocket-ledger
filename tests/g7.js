@@ -9,9 +9,20 @@ const fs = require("fs");
   let rows = await T.rows();
   check(rows.length === 2, "two entries in Me", rows);
   // delete (tap a row on touch, or use the buttons)
-  await p.click('#ledger li.tx:has-text("Faris lunch") button[data-ask]'); await p.click("#ledger button[data-del]"); await p.waitForTimeout(500);
+  // deleting is instant, with Undo in the toast
+  await p.click('#ledger li.tx:has-text("Faris lunch") button[data-del]'); await p.waitForTimeout(500);
   rows = await T.rows();
-  check(rows.length === 1 && !rows.some(r => /lunch/.test(r)), "lunch deleted", rows);
+  check(rows.length === 1 && !rows.some(r => /lunch/.test(r)), "lunch deleted at once", rows);
+  check(await T.visible("#toast .toast-act"), "toast has Undo");
+  await p.click("#toast .toast-act"); await p.waitForTimeout(500);
+  rows = await T.rows();
+  check(rows.length === 2 && rows.some(r => /lunch/.test(r)), "Undo brings it back", rows);
+  await T.nav("settings/trash"); await p.waitForTimeout(600);
+  check(/Nothing deleted/.test(await T.text("#trashList")), "Undo also clears it from Recently deleted", await T.text("#trashList"));
+  await T.nav("entries");
+  await p.click('#ledger li.tx:has-text("Faris lunch") button[data-del]'); await p.waitForTimeout(500);
+  rows = await T.rows();
+  check(rows.length === 1, "deleted again", rows);
   await T.nav("settings/trash"); await p.waitForTimeout(700);
   check(/Faris lunch/.test(await T.text("#trashList")), "it's in Recently deleted", await T.text("#trashList"));
   await p.click("#trashList button[data-untrash]"); await p.waitForTimeout(700);
